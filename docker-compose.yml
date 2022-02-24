@@ -1,0 +1,18 @@
+version: "3.3"
+
+services:
+  rust-pg:
+    image: postgres
+    ports:
+      - 9876:5432
+    environment:
+      - POSTGRES_USER=rust
+      - POSTGRES_PASSWORD=rust
+    healthcheck:
+      # Checks that a service binds to 0.0.0.0:5432.
+      # (pg_isready alone is insufficient for health, because of an "init" server binding to 127.0.0.1:5432)
+      test:
+        ["CMD-SHELL", "(cat /proc/net/tcp | grep 00000000:1538) && pg_isready"]
+      interval: 1s
+      timeout: 2s
+      retries: 20

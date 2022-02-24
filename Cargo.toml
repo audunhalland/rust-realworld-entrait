@@ -1,0 +1,19 @@
+[package]
+name = "rust-realworld-ioc"
+version = "0.1.0"
+authors = ["Audun Halland <audun.halldand@pm.me>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
+entrait = { version = "0.0.2", features = ["async_trait"] }
+thiserror = "1"
+async-trait = "0.1"
+uuid = "0.8"
+
+[dev-dependencies]
+url = "2.0"
+dotenv = "0.15"
