@@ -13,9 +13,9 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
-#[entrait(CreateUser for crate::App)]
-async fn create_user<A>(
-    a: &A,
+#[entrait(InsertUser for crate::App)]
+async fn insert_user<A>(
+    app: &A,
     username: String,
     email: String,
     password_hash: String,
@@ -29,7 +29,7 @@ where
         email,
         password_hash
     )
-    .fetch_one(a.get_pg_pool())
+    .fetch_one(app.get_pg_pool())
     .await?;
 
     Ok(DbUser {
@@ -41,8 +41,8 @@ where
     })
 }
 
-#[entrait(GetUser for crate::App)]
-async fn get_user<A>(a: &A, id: Uuid) -> Result<DbUser>
+#[entrait(FetchUserById for crate::App)]
+async fn fetch_user_by_id<A>(a: &A, id: Uuid) -> Result<DbUser>
 where
     A: GetPgPool,
 {
@@ -57,16 +57,32 @@ where
     Ok(db_user)
 }
 
+#[entrait(FetchUserByEmail for crate::App)]
+async fn fetch_user_by_email<A>(a: &A, email: String) -> Result<Option<DbUser>>
+where
+    A: GetPgPool,
+{
+    let db_user = sqlx::query_as!(
+        DbUser,
+        r#"SELECT id, email, username, bio, image FROM app.user WHERE email = $1"#,
+        email
+    )
+    .fetch_optional(a.get_pg_pool())
+    .await?;
+
+    Ok(db_user)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::*;
     use super::*;
 
     #[tokio::test]
-    async fn should_create_then_retrieve_user() {
+    async fn should_insert_then_fetch_user() {
         let pool = create_test_db().await;
 
-        let created_user = create_user(
+        let created_user = insert_user(
             &pool,
             "foo".to_string(),
             "bar".to_string(),
@@ -78,7 +94,7 @@ mod tests {
         assert_eq!("foo", created_user.username);
         assert_eq!("bar", created_user.email);
 
-        let fetched_user = get_user(&pool, created_user.id).await.unwrap();
+        let fetched_user = fetch_user_by_id(&pool, created_user.id).await.unwrap();
 
         assert_eq!(created_user, fetched_user);
     }
