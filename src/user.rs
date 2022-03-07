@@ -38,7 +38,7 @@ struct AuthUserClaims {
     exp: i64,
 }
 
-#[entrait(CreateUser for crate::App)]
+#[entrait(CreateUser for crate::App, async_trait=true)]
 async fn create_user<A>(app: &A, new_user: NewUser) -> Result<SignedUser>
 where
     A: InsertUser + GetJwtSigningKey,
@@ -52,7 +52,7 @@ where
     Ok(sign_db_user(db_user, app.get_jwt_signing_key()))
 }
 
-#[entrait(Login for crate::App)]
+#[entrait(Login for crate::App, async_trait=true)]
 async fn login<A>(app: &A, login_user: LoginUser) -> Result<Option<SignedUser>>
 where
     A: FetchUserByEmail + GetJwtSigningKey,

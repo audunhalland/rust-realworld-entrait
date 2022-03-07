@@ -283,9 +283,18 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "entrait"
-version = "0.0.2"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0c95d1638268fd505294f46f31ee38883f133afa55da8f609fd7b04a7144a4f"
+checksum = "29e6715f218b2723f26efc78536e7a6caf74d54f8aa633e002ed48cf7d1bbce3"
+dependencies = [
+ "entrait_macros",
+]
+
+[[package]]
+name = "entrait_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "240017e8ed0717f9fa0f954eb2a70578ccb8054f78b0fd3ef96a04a1134ed044"
 dependencies = [
  "proc-macro2",
  "quote",

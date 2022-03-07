@@ -13,7 +13,7 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
-#[entrait(InsertUser for crate::App)]
+#[entrait(InsertUser for crate::App, async_trait = true)]
 async fn insert_user<A>(
     app: &A,
     username: String,
@@ -41,7 +41,7 @@ where
     })
 }
 
-#[entrait(FetchUserById for crate::App)]
+#[entrait(FetchUserById for crate::App, async_trait = true)]
 async fn fetch_user_by_id<A>(a: &A, id: Uuid) -> Result<DbUser>
 where
     A: GetPgPool,
@@ -57,7 +57,7 @@ where
     Ok(db_user)
 }
 
-#[entrait(FetchUserByEmail for crate::App)]
+#[entrait(FetchUserByEmail for crate::App, async_trait = true)]
 async fn fetch_user_by_email<A>(a: &A, email: String) -> Result<Option<DbUser>>
 where
     A: GetPgPool,
