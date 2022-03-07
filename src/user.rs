@@ -39,27 +39,27 @@ struct AuthUserClaims {
 }
 
 #[entrait(CreateUser for crate::App, async_trait=true)]
-async fn create_user<A>(app: &A, new_user: NewUser) -> Result<SignedUser>
-where
-    A: InsertUser + GetJwtSigningKey,
-{
+async fn create_user(
+    deps: &(impl InsertUser + GetJwtSigningKey),
+    new_user: NewUser,
+) -> Result<SignedUser> {
     let password_hash = hash_password(new_user.password).await?;
 
-    let db_user = app
+    let db_user = deps
         .insert_user(new_user.username, new_user.email, password_hash)
         .await?;
 
-    Ok(sign_db_user(db_user, app.get_jwt_signing_key()))
+    Ok(sign_db_user(db_user, deps.get_jwt_signing_key()))
 }
 
 #[entrait(Login for crate::App, async_trait=true)]
-async fn login<A>(app: &A, login_user: LoginUser) -> Result<Option<SignedUser>>
-where
-    A: FetchUserByEmail + GetJwtSigningKey,
-{
-    let db_user = app.fetch_user_by_email(login_user.email).await?;
+async fn login(
+    deps: &(impl FetchUserByEmail + GetJwtSigningKey),
+    login_user: LoginUser,
+) -> Result<Option<SignedUser>> {
+    let db_user = deps.fetch_user_by_email(login_user.email).await?;
 
-    Ok(db_user.map(|db_user| sign_db_user(db_user, app.get_jwt_signing_key())))
+    Ok(db_user.map(|db_user| sign_db_user(db_user, deps.get_jwt_signing_key())))
 }
 
 fn sign_db_user(db_user: DbUser, signing_key: &hmac::Hmac<sha2::Sha384>) -> SignedUser {

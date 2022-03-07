@@ -14,22 +14,19 @@ pub struct DbUser {
 }
 
 #[entrait(InsertUser for crate::App, async_trait = true)]
-async fn insert_user<A>(
-    app: &A,
+async fn insert_user(
+    deps: &impl GetPgPool,
     username: String,
     email: String,
     password_hash: String,
-) -> Result<DbUser>
-where
-    A: GetPgPool,
-{
+) -> Result<DbUser> {
     let id = sqlx::query_scalar!(
         r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id"#,
         username,
         email,
         password_hash
     )
-    .fetch_one(app.get_pg_pool())
+    .fetch_one(deps.get_pg_pool())
     .await?;
 
     Ok(DbUser {
@@ -42,32 +39,26 @@ where
 }
 
 #[entrait(FetchUserById for crate::App, async_trait = true)]
-async fn fetch_user_by_id<A>(a: &A, id: Uuid) -> Result<DbUser>
-where
-    A: GetPgPool,
-{
+async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
     let db_user = sqlx::query_as!(
         DbUser,
         r#"SELECT id, email, username, bio, image FROM app.user WHERE id = $1"#,
         id
     )
-    .fetch_one(a.get_pg_pool())
+    .fetch_one(deps.get_pg_pool())
     .await?;
 
     Ok(db_user)
 }
 
 #[entrait(FetchUserByEmail for crate::App, async_trait = true)]
-async fn fetch_user_by_email<A>(a: &A, email: String) -> Result<Option<DbUser>>
-where
-    A: GetPgPool,
-{
+async fn fetch_user_by_email(deps: &impl GetPgPool, email: String) -> Result<Option<DbUser>> {
     let db_user = sqlx::query_as!(
         DbUser,
         r#"SELECT id, email, username, bio, image FROM app.user WHERE email = $1"#,
         email
     )
-    .fetch_optional(a.get_pg_pool())
+    .fetch_optional(deps.get_pg_pool())
     .await?;
 
     Ok(db_user)
