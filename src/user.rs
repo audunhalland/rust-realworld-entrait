@@ -79,7 +79,7 @@ fn sign_db_user(db_user: DbUser, signing_key: &hmac::Hmac<sha2::Sha384>) -> Sign
     }
 }
 
-#[entrait(GetJwtSigningKey for crate::App)]
+#[entrait(GetJwtSigningKey for crate::App, test_unimock=true)]
 fn get_jwt_signing_key(app: &crate::App) -> &hmac::Hmac<sha2::Sha384> {
     &app.config.jwt_signing_key
 }
@@ -100,4 +100,45 @@ async fn hash_password(password: String) -> Result<String> {
     })
     .await
     .context("panic in generating password hash")??)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_hmac_mock(mock: &mut MockGetJwtSigningKey) {
+        use hmac::NewMac;
+        let hmac = hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
+            .expect("HMAC-SHA-384 can accept any key length");
+
+        mock.expect_get_jwt_signing_key().return_const(hmac);
+    }
+
+    #[tokio::test]
+    async fn test_create_user() {
+        let new_user = NewUser {
+            username: "Name".to_string(),
+            email: "name@email.com".to_string(),
+            password: "password".to_string(),
+        };
+        let deps = unimock::Unimock::new()
+            .mock(|insert_user: &mut MockInsertUser| {
+                insert_user
+                    .expect_insert_user()
+                    .returning(|username, email, _| {
+                        Ok(DbUser {
+                            id: uuid::Uuid::new_v4(),
+                            username,
+                            email,
+                            bio: "".to_string(),
+                            image: None,
+                        })
+                    });
+            })
+            .mock(setup_hmac_mock);
+
+        let signed_user = create_user(&deps, new_user).await.unwrap();
+
+        assert_eq!("Name", &signed_user.username);
+    }
 }

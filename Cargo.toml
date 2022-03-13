@@ -9,18 +9,20 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-entrait = "0.1"
+entrait = "0.2.1"
 serde = { version = "1.0.130", features = ["derive"] }
 time = "0.2"
 thiserror = "1"
 async-trait = "0.1"
-uuid = { version = "0.8", features = ["serde"] }
+uuid = { version = "0.8", features = ["serde", "v4"] }
 argon2 = "0.3"
 rand = "0.8"
 anyhow = "1"
 jwt = "0.15.0"
 hmac = "0.11"
 sha2 = "0.9"
+mockall = "0.11"
+unimock = "0.1"
 
 [dev-dependencies]
 url = "2.0"

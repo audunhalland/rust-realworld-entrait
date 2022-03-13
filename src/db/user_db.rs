@@ -4,7 +4,7 @@ use crate::error::Result;
 use entrait::*;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DbUser {
     pub id: Uuid,
     pub username: String,
@@ -13,7 +13,7 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
-#[entrait(InsertUser for crate::App, async_trait = true)]
+#[entrait(InsertUser for crate::App, async_trait=true, unimock=test)]
 async fn insert_user(
     deps: &impl GetPgPool,
     username: String,
@@ -38,7 +38,7 @@ async fn insert_user(
     })
 }
 
-#[entrait(FetchUserById for crate::App, async_trait = true)]
+#[entrait(FetchUserById for crate::App, async_trait=true, unimock=test)]
 async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
     let db_user = sqlx::query_as!(
         DbUser,
@@ -51,7 +51,7 @@ async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
     Ok(db_user)
 }
 
-#[entrait(FetchUserByEmail for crate::App, async_trait = true)]
+#[entrait(FetchUserByEmail for crate::App, async_trait=true, unimock=test)]
 async fn fetch_user_by_email(deps: &impl GetPgPool, email: String) -> Result<Option<DbUser>> {
     let db_user = sqlx::query_as!(
         DbUser,
