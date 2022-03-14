@@ -1,5 +1,6 @@
 use super::GetPgPool;
 use crate::error::Result;
+use crate::App;
 
 use entrait::*;
 use uuid::Uuid;
@@ -13,18 +14,20 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
-#[entrait(InsertUser for crate::App, async_trait=true, unimock=test)]
+pub struct PasswordHash(pub String);
+
+#[entrait(InsertUser for App, async_trait=true, unimock=test)]
 async fn insert_user(
     deps: &impl GetPgPool,
     username: String,
     email: String,
-    password_hash: String,
+    password_hash: PasswordHash,
 ) -> Result<DbUser> {
     let id = sqlx::query_scalar!(
         r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id"#,
         username,
         email,
-        password_hash
+        password_hash.0
     )
     .fetch_one(deps.get_pg_pool())
     .await?;
@@ -38,7 +41,33 @@ async fn insert_user(
     })
 }
 
-#[entrait(FetchUserById for crate::App, async_trait=true, unimock=test)]
+#[entrait(FetchUserAndPasswordHashByEmail for App, async_trait=true, unimock=test)]
+async fn fetch_user_and_password_hash_by_email(
+    deps: &impl GetPgPool,
+    email: String,
+) -> Result<Option<(DbUser, PasswordHash)>> {
+    let record = sqlx::query!(
+        r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
+        email
+    )
+    .fetch_optional(deps.get_pg_pool())
+    .await?;
+
+    Ok(record.map(|record| {
+        (
+            DbUser {
+                id: record.id,
+                username: record.username,
+                email: record.email,
+                bio: record.bio,
+                image: record.image,
+            },
+            PasswordHash(record.password_hash),
+        )
+    }))
+}
+
+#[entrait(FetchUserById for App, async_trait=true, unimock=test)]
 async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
     let db_user = sqlx::query_as!(
         DbUser,
@@ -46,19 +75,6 @@ async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
         id
     )
     .fetch_one(deps.get_pg_pool())
-    .await?;
-
-    Ok(db_user)
-}
-
-#[entrait(FetchUserByEmail for crate::App, async_trait=true, unimock=test)]
-async fn fetch_user_by_email(deps: &impl GetPgPool, email: String) -> Result<Option<DbUser>> {
-    let db_user = sqlx::query_as!(
-        DbUser,
-        r#"SELECT id, email, username, bio, image FROM app.user WHERE email = $1"#,
-        email
-    )
-    .fetch_optional(deps.get_pg_pool())
     .await?;
 
     Ok(db_user)
@@ -77,7 +93,7 @@ mod tests {
             &pool,
             "foo".to_string(),
             "bar".to_string(),
-            "baz".to_string(),
+            PasswordHash("baz".to_string()),
         )
         .await
         .unwrap();

@@ -7,6 +7,9 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("authentication required")]
+    Unauthorized,
+
     #[error("error in the request body")]
     UnprocessableEntity {
         errors: HashMap<CowStr, Vec<CowStr>>,

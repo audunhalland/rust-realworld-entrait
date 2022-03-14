@@ -23,6 +23,7 @@ hmac = "0.11"
 sha2 = "0.9"
 mockall = "0.11"
 unimock = "0.1"
+maplit = "1"
 
 [dev-dependencies]
 url = "2.0"
