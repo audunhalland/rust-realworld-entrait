@@ -1,9 +1,18 @@
 use crate::types::CowStr;
 
+//use axum::http::{HeaderMap, HeaderValue, Response, StatusCode};
+use axum::{
+    body::{self, Bytes},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::get,
+    Router,
+};
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub type AppResult<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -43,5 +52,11 @@ impl Error {
         }
 
         Self::UnprocessableEntity { errors: error_map }
+    }
+}
+
+impl axum::response::IntoResponse for Error {
+    fn into_response(self) -> Response {
+        panic!()
     }
 }

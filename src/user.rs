@@ -10,6 +10,7 @@ use time::OffsetDateTime;
 
 const DEFAULT_SESSION_LENGTH: time::Duration = time::Duration::weeks(2);
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct SignedUser {
     pub email: String,
     pub token: String,
@@ -18,19 +19,27 @@ pub struct SignedUser {
     pub image: Option<String>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct LoginUser {
     pub email: String,
     pub password: String,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct NewUser {
     username: String,
     email: String,
     password: String,
 }
 
-pub struct AuthUser {
-    pub user_id: uuid::Uuid,
+#[derive(serde::Deserialize, Default, PartialEq, Eq)]
+#[serde(default)] // fill in any missing fields with `..UpdateUser::default()`
+pub struct UpdateUser {
+    email: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+    bio: Option<String>,
+    image: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -44,7 +53,7 @@ struct AuthUserClaims {
 pub async fn create_user(
     deps: &(impl InsertUser + HashPassword + GetCurrentTime + GetJwtSigningKey),
     new_user: NewUser,
-) -> Result<SignedUser> {
+) -> AppResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
 
     let db_user = deps
@@ -62,7 +71,7 @@ pub async fn create_user(
 pub async fn login(
     deps: &(impl FetchUserAndPasswordHashByEmail + VerifyPassword + GetCurrentTime + GetJwtSigningKey),
     login_user: LoginUser,
-) -> Result<SignedUser> {
+) -> AppResult<SignedUser> {
     let (db_user, password_hash) = deps
         .fetch_user_and_password_hash_by_email(login_user.email)
         .await?
@@ -104,14 +113,14 @@ fn sign_db_user(
 }
 
 #[entrait(HashPassword for App, async_trait=true, unimock=test)]
-async fn hash_password(_: &App, password: String) -> Result<PasswordHash> {
+async fn hash_password(_: &App, password: String) -> AppResult<PasswordHash> {
     use argon2::password_hash::SaltString;
     use argon2::Argon2;
 
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
     Ok(
-        tokio::task::spawn_blocking(move || -> Result<PasswordHash> {
+        tokio::task::spawn_blocking(move || -> AppResult<PasswordHash> {
             let salt = SaltString::generate(rand::thread_rng());
             Ok(PasswordHash(
                 argon2::PasswordHash::generate(Argon2::default(), password, salt.as_str())
@@ -125,10 +134,10 @@ async fn hash_password(_: &App, password: String) -> Result<PasswordHash> {
 }
 
 #[entrait(VerifyPassword for App, async_trait=true, unimock=test)]
-async fn verify_password(_: &App, password: String, password_hash: PasswordHash) -> Result<()> {
+async fn verify_password(_: &App, password: String, password_hash: PasswordHash) -> AppResult<()> {
     use argon2::{Argon2, PasswordHash};
 
-    Ok(tokio::task::spawn_blocking(move || -> Result<()> {
+    Ok(tokio::task::spawn_blocking(move || -> AppResult<()> {
         let hash = PasswordHash::new(&password_hash.0)
             .map_err(|e| anyhow::anyhow!("invalid password hash: {}", e))?;
 

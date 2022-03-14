@@ -1,5 +1,5 @@
 use super::GetPgPool;
-use crate::error::Result;
+use crate::error::AppResult;
 use crate::App;
 
 use entrait::*;
@@ -22,7 +22,7 @@ async fn insert_user(
     username: String,
     email: String,
     password_hash: PasswordHash,
-) -> Result<DbUser> {
+) -> AppResult<DbUser> {
     let id = sqlx::query_scalar!(
         r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id"#,
         username,
@@ -45,7 +45,7 @@ async fn insert_user(
 async fn fetch_user_and_password_hash_by_email(
     deps: &impl GetPgPool,
     email: String,
-) -> Result<Option<(DbUser, PasswordHash)>> {
+) -> AppResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
         email
@@ -68,7 +68,7 @@ async fn fetch_user_and_password_hash_by_email(
 }
 
 #[entrait(FetchUserById for App, async_trait=true, unimock=test)]
-async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> Result<DbUser> {
+async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> AppResult<DbUser> {
     let db_user = sqlx::query_as!(
         DbUser,
         r#"SELECT id, email, username, bio, image FROM app.user WHERE id = $1"#,
