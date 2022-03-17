@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-axum = { version = "0.4", features = ["tower-log"] }
+axum = { version = "0.4", features = ["tower-log", "headers"] }
 tower = "0.4"
 tower-http = { version = "0.2", features = ["trace"] }
 entrait = "0.2.1"
@@ -21,12 +21,13 @@ uuid = { version = "0.8", features = ["serde", "v4"] }
 argon2 = "0.3"
 rand = "0.8"
 anyhow = "1"
-jwt = "0.15.0"
-hmac = "0.11"
-sha2 = "0.9"
+jwt = "0.16"
+hmac = "0.12"
+sha2 = "0.10"
 mockall = "0.11"
 unimock = "0.1"
 maplit = "1"
+tracing = "0.1"
 
 [dev-dependencies]
 url = "2.0"

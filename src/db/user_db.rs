@@ -1,6 +1,6 @@
 use super::GetPgPool;
+use crate::app::App;
 use crate::error::AppResult;
-use crate::App;
 
 use entrait::*;
 use uuid::Uuid;

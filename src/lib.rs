@@ -1,4 +1,5 @@
 mod api;
+mod app;
 mod auth;
 mod db;
 mod error;
@@ -6,19 +7,13 @@ mod types;
 mod user;
 
 use anyhow::Context;
-use std::sync::Arc;
 use tower::ServiceBuilder;
 
 pub struct Config {
     pub jwt_signing_key: hmac::Hmac<sha2::Sha384>,
 }
 
-#[derive(Clone)]
-pub struct App {
-    pub config: Arc<Config>,
-}
-
-pub async fn serve(app: App) -> anyhow::Result<()> {
+pub async fn serve(app: app::App) -> anyhow::Result<()> {
     let app = api::api_router().layer(
         ServiceBuilder::new()
             .layer(axum::extract::Extension(app))

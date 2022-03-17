@@ -1,4 +1,4 @@
-use crate::App;
+use crate::app::App;
 use entrait::*;
 use sqlx::PgPool;
 

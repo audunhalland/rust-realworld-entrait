@@ -1,12 +1,12 @@
+use crate::app::App;
+use crate::auth::Authenticated;
+use crate::error::AppResult;
+use crate::user::{self, FetchUser, UpdateUser, UserId};
+use crate::user::{CreateUser, Login};
+
 use axum::extract::Extension;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-
-use crate::auth::Auth;
-use crate::error::AppResult;
-use crate::user;
-use crate::user::{CreateUser, Login};
-use crate::App;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct UserBody<T> {
@@ -34,7 +34,7 @@ async fn create_user(
 }
 
 async fn login(
-    app: Extension<App>,
+    Extension(app): Extension<App>,
     Json(body): Json<UserBody<user::LoginUser>>,
 ) -> AppResult<JsonSignedUser> {
     Ok(Json(UserBody {
@@ -42,14 +42,21 @@ async fn login(
     }))
 }
 
-async fn current_user(app: Extension<App>, auth: Auth) -> AppResult<JsonSignedUser> {
-    panic!()
+async fn current_user(
+    Extension(app): Extension<App>,
+    user_id: Authenticated<UserId>,
+) -> AppResult<JsonSignedUser> {
+    Ok(Json(UserBody {
+        user: app.fetch_user(user_id).await?,
+    }))
 }
 
 async fn update_user(
-    app: Extension<App>,
-    auth: Auth,
-    Json(body): Json<UserBody<user::UpdateUser>>,
+    Extension(app): Extension<App>,
+    user_id: Authenticated<UserId>,
+    Json(body): Json<UserBody<user::UserUpdate>>,
 ) -> AppResult<JsonSignedUser> {
-    panic!()
+    Ok(Json(UserBody {
+        user: app.update_user(user_id, body.user).await?,
+    }))
 }

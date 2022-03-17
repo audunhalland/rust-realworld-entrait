@@ -1,6 +1,7 @@
+use crate::app::{App, GetCurrentTime, GetJwtSigningKey};
+use crate::auth::Authenticated;
 use crate::db::user_db::*;
 use crate::error::*;
-use crate::App;
 
 use anyhow::Context;
 use entrait::*;
@@ -9,6 +10,8 @@ use maplit::*;
 use time::OffsetDateTime;
 
 const DEFAULT_SESSION_LENGTH: time::Duration = time::Duration::weeks(2);
+
+pub struct UserId(pub uuid::Uuid);
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SignedUser {
@@ -33,8 +36,8 @@ pub struct NewUser {
 }
 
 #[derive(serde::Deserialize, Default, PartialEq, Eq)]
-#[serde(default)] // fill in any missing fields with `..UpdateUser::default()`
-pub struct UpdateUser {
+#[serde(default)]
+pub struct UserUpdate {
     email: Option<String>,
     username: Option<String>,
     password: Option<String>,
@@ -68,7 +71,7 @@ pub async fn create_user(
 }
 
 #[entrait(Login for App, async_trait=true)]
-pub async fn login(
+async fn login(
     deps: &(impl FetchUserAndPasswordHashByEmail + VerifyPassword + GetCurrentTime + GetJwtSigningKey),
     login_user: LoginUser,
 ) -> AppResult<SignedUser> {
@@ -89,6 +92,23 @@ pub async fn login(
         deps.get_current_time(),
         deps.get_jwt_signing_key(),
     ))
+}
+
+#[entrait(FetchUser for App, async_trait=true)]
+async fn fetch_user(
+    deps: &impl FetchUserAndPasswordHashByEmail,
+    user_id: Authenticated<UserId>,
+) -> Result<SignedUser, Error> {
+    todo!()
+}
+
+#[entrait(UpdateUser for App, async_trait=true)]
+async fn update_user<D>(
+    deps: D,
+    user_id: Authenticated<UserId>,
+    update: UserUpdate,
+) -> Result<SignedUser, Error> {
+    todo!()
 }
 
 fn sign_db_user(
@@ -151,18 +171,10 @@ async fn verify_password(_: &App, password: String, password_hash: PasswordHash)
     .context("panic in verifying password hash")??)
 }
 
-#[entrait(GetJwtSigningKey for App, unimock=test)]
-fn get_jwt_signing_key(app: &App) -> &hmac::Hmac<sha2::Sha384> {
-    &app.config.jwt_signing_key
-}
-
-#[entrait(GetCurrentTime for App, unimock=test)]
-fn get_current_time(_: &App) -> OffsetDateTime {
-    OffsetDateTime::now_utc()
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::app::{MockGetCurrentTime, MockGetJwtSigningKey};
+
     use super::*;
 
     const TOKEN: &'static str = "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt";
@@ -185,7 +197,7 @@ mod tests {
     }
 
     fn setup_hmac_mock(mock: &mut MockGetJwtSigningKey) {
-        use hmac::NewMac;
+        use hmac::Mac;
         let hmac = hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
             .expect("HMAC-SHA-384 can accept any key length");
 
