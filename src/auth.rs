@@ -5,7 +5,8 @@ use crate::user::UserId;
 use axum::extract::Extension;
 use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderValue;
-use entrait::*;
+use entrait::unimock_test::*;
+use implementation::Impl;
 use jwt::VerifyWithKey;
 use uuid::Uuid;
 
@@ -20,7 +21,7 @@ struct AuthUserClaims {
 
 const SCHEME_PREFIX: &str = "Token ";
 
-#[entrait(Authenticate for App)]
+#[entrait(Authenticate)]
 fn authenticate(
     deps: &(impl GetCurrentTime + GetJwtSigningKey),
     auth_header: &HeaderValue,
@@ -38,7 +39,7 @@ fn authenticate(
 
     let hmac = deps.get_jwt_signing_key();
 
-    let jwt = jwt.verify_with_key(hmac).map_err(|e| Error::Unauthorized)?;
+    let jwt = jwt.verify_with_key(hmac).map_err(|_| Error::Unauthorized)?;
     let (_header, claims) = jwt.into();
 
     if claims.exp < deps.get_current_time().unix_timestamp() {
@@ -55,13 +56,12 @@ impl<B: Send> axum::extract::FromRequest<B> for Authenticated<UserId> {
     async fn from_request(
         req: &mut axum::extract::RequestParts<B>,
     ) -> Result<Self, Self::Rejection> {
-        let Extension(app): Extension<App> = Extension::from_request(req)
+        let Extension(app): Extension<Impl<App>> = Extension::from_request(req)
             .await
             .expect("BUG: App was not added as an extension");
 
         let auth_header = req
             .headers()
-            .ok_or(Error::Unauthorized)?
             .get(AUTHORIZATION)
             .ok_or(Error::Unauthorized)?;
 

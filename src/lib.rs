@@ -1,3 +1,5 @@
+#![feature(generic_associated_types)]
+
 mod api;
 mod app;
 mod auth;
@@ -6,7 +8,11 @@ mod error;
 mod types;
 mod user;
 
+#[cfg(test)]
+mod test_util;
+
 use anyhow::Context;
+use implementation::Impl;
 use tower::ServiceBuilder;
 
 pub struct Config {
@@ -16,7 +22,7 @@ pub struct Config {
 pub async fn serve(app: app::App) -> anyhow::Result<()> {
     let app = api::api_router().layer(
         ServiceBuilder::new()
-            .layer(axum::extract::Extension(app))
+            .layer(axum::extract::Extension(Impl::new(app)))
             // Enables logging. Use `RUST_LOG=tower_http=debug`
             .layer(tower_http::trace::TraceLayer::new_for_http()),
     );

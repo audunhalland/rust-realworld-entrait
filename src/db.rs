@@ -1,10 +1,10 @@
 use crate::app::App;
-use entrait::*;
+use entrait::unimock_test::*;
 use sqlx::PgPool;
 
 pub mod user_db;
 
-#[entrait(GetPgPool for App)]
+#[entrait(pub GetPgPool)]
 fn get_pg_pool(_: &App) -> &PgPool {
     unimplemented!()
 }

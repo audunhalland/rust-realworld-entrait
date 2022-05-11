@@ -1,8 +1,7 @@
 use super::GetPgPool;
-use crate::app::App;
 use crate::error::AppResult;
 
-use entrait::*;
+use entrait::unimock_test::*;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,7 +15,7 @@ pub struct DbUser {
 
 pub struct PasswordHash(pub String);
 
-#[entrait(InsertUser for App, async_trait=true, unimock=test)]
+#[entrait(pub InsertUser, async_trait=true)]
 async fn insert_user(
     deps: &impl GetPgPool,
     username: String,
@@ -41,7 +40,7 @@ async fn insert_user(
     })
 }
 
-#[entrait(FetchUserAndPasswordHashByEmail for App, async_trait=true, unimock=test)]
+#[entrait(pub FetchUserAndPasswordHashByEmail, async_trait = true)]
 async fn fetch_user_and_password_hash_by_email(
     deps: &impl GetPgPool,
     email: String,
@@ -67,7 +66,7 @@ async fn fetch_user_and_password_hash_by_email(
     }))
 }
 
-#[entrait(FetchUserById for App, async_trait=true, unimock=test)]
+#[entrait(pub FetchUserById, async_trait=true)]
 async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> AppResult<DbUser> {
     let db_user = sqlx::query_as!(
         DbUser,

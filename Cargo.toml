@@ -9,11 +9,15 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-axum = { version = "0.4", features = ["tower-log", "headers"] }
+axum = { version = "0.5", features = ["tower-log", "headers"] }
+hyper = { version = "0.14", features = ["full"] }
+bytes = "1"
 tower = "0.4"
 tower-http = { version = "0.2", features = ["trace"] }
-entrait = "0.2.1"
+entrait = { git = "https://github.com/audunhalland/entrait", branch = "unimock-next" }
+implementation = "0.1"
 serde = { version = "1.0.130", features = ["derive"] }
+serde_json = "1"
 time = "0.2"
 thiserror = "1"
 async-trait = "0.1"
@@ -25,10 +29,11 @@ jwt = "0.16"
 hmac = "0.12"
 sha2 = "0.10"
 mockall = "0.11"
-unimock = "0.1"
+unimock = { git = "https://github.com/audunhalland/unimock", branch = "gat-mock" }
 maplit = "1"
 tracing = "0.1"
 
 [dev-dependencies]
 url = "2.0"
 dotenv = "0.15"
+mime = "0.3"

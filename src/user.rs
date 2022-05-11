@@ -4,7 +4,7 @@ use crate::db::user_db::*;
 use crate::error::*;
 
 use anyhow::Context;
-use entrait::*;
+use entrait::unimock_test::*;
 use jwt::SignWithKey;
 use maplit::*;
 use time::OffsetDateTime;
@@ -30,9 +30,9 @@ pub struct LoginUser {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct NewUser {
-    username: String,
-    email: String,
-    password: String,
+    pub username: String,
+    pub email: String,
+    pub password: String,
 }
 
 #[derive(serde::Deserialize, Default, PartialEq, Eq)]
@@ -52,7 +52,7 @@ struct AuthUserClaims {
     exp: i64,
 }
 
-#[entrait(CreateUser for App, async_trait=true)]
+#[entrait(pub CreateUser, async_trait = true)]
 pub async fn create_user(
     deps: &(impl InsertUser + HashPassword + GetCurrentTime + GetJwtSigningKey),
     new_user: NewUser,
@@ -70,7 +70,7 @@ pub async fn create_user(
     ))
 }
 
-#[entrait(Login for App, async_trait=true)]
+#[entrait(pub Login, async_trait = true)]
 async fn login(
     deps: &(impl FetchUserAndPasswordHashByEmail + VerifyPassword + GetCurrentTime + GetJwtSigningKey),
     login_user: LoginUser,
@@ -94,7 +94,7 @@ async fn login(
     ))
 }
 
-#[entrait(FetchUser for App, async_trait=true)]
+#[entrait(pub FetchUser, async_trait = true)]
 async fn fetch_user(
     deps: &impl FetchUserAndPasswordHashByEmail,
     user_id: Authenticated<UserId>,
@@ -102,7 +102,7 @@ async fn fetch_user(
     todo!()
 }
 
-#[entrait(UpdateUser for App, async_trait=true)]
+#[entrait(pub UpdateUser, async_trait = true)]
 async fn update_user<D>(
     deps: D,
     user_id: Authenticated<UserId>,
@@ -132,8 +132,8 @@ fn sign_db_user(
     }
 }
 
-#[entrait(HashPassword for App, async_trait=true, unimock=test)]
-async fn hash_password(_: &App, password: String) -> AppResult<PasswordHash> {
+#[entrait(pub HashPassword, async_trait=true, unimock=test)]
+async fn hash_password<D>(_: &D, password: String) -> AppResult<PasswordHash> {
     use argon2::password_hash::SaltString;
     use argon2::Argon2;
 
@@ -153,8 +153,8 @@ async fn hash_password(_: &App, password: String) -> AppResult<PasswordHash> {
     )
 }
 
-#[entrait(VerifyPassword for App, async_trait=true, unimock=test)]
-async fn verify_password(_: &App, password: String, password_hash: PasswordHash) -> AppResult<()> {
+#[entrait(VerifyPassword, async_trait=true, unimock=test)]
+async fn verify_password<D>(_: &D, password: String, password_hash: PasswordHash) -> AppResult<()> {
     use argon2::{Argon2, PasswordHash};
 
     Ok(tokio::task::spawn_blocking(move || -> AppResult<()> {
@@ -173,9 +173,10 @@ async fn verify_password(_: &App, password: String, password_hash: PasswordHash)
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{MockGetCurrentTime, MockGetJwtSigningKey};
+    use crate::app::{get_current_time, get_jwt_signing_key};
 
     use super::*;
+    use unimock::*;
 
     const TOKEN: &'static str = "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt";
 
@@ -191,23 +192,27 @@ mod tests {
         PasswordHash("h4sh".to_string())
     }
 
-    fn setup_hash_password_mock(mock: &mut MockHashPassword) {
-        mock.expect_hash_password()
-            .returning(|_| Ok(test_password_hash()));
+    fn mock_hash_password() -> unimock::Clause {
+        hash_password::Fn::each_call(matching!(_))
+            .answers(|_| Ok(test_password_hash()))
+            .in_any_order()
     }
 
-    fn setup_hmac_mock(mock: &mut MockGetJwtSigningKey) {
+    fn mock_hmac() -> unimock::Clause {
         use hmac::Mac;
-        let hmac = hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
-            .expect("HMAC-SHA-384 can accept any key length");
 
-        mock.expect_get_jwt_signing_key().once().return_const(hmac);
+        get_jwt_signing_key::Fn::each_call(matching!())
+            .returns(
+                hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
+                    .expect("HMAC-SHA-384 can accept any key length"),
+            )
+            .in_any_order()
     }
 
-    fn setup_current_time_mock(mock: &mut MockGetCurrentTime) {
-        mock.expect_get_current_time()
-            .once()
-            .return_const(OffsetDateTime::from_unix_timestamp(0));
+    fn mock_current_time() -> unimock::Clause {
+        get_current_time::Fn::each_call(matching!())
+            .returns(OffsetDateTime::from_unix_timestamp(0))
+            .in_any_order()
     }
 
     #[tokio::test]
@@ -217,9 +222,9 @@ mod tests {
             email: "name@email.com".to_string(),
             password: test_password(),
         };
-        let deps = unimock::Unimock::new()
-            .mock(|mock: &mut MockInsertUser| {
-                mock.expect_insert_user().returning(|username, email, _| {
+        let mock = mock([
+            insert_user::Fn::each_call(matching!(_, _, _))
+                .answers(|(username, email, _)| {
                     Ok(DbUser {
                         id: test_user_id(),
                         username,
@@ -227,13 +232,14 @@ mod tests {
                         bio: "".to_string(),
                         image: None,
                     })
-                });
-            })
-            .mock(setup_hash_password_mock)
-            .mock(setup_current_time_mock)
-            .mock(setup_hmac_mock);
+                })
+                .in_any_order(),
+            mock_hash_password(),
+            mock_current_time(),
+            mock_hmac(),
+        ]);
 
-        let signed_user = create_user(&deps, new_user).await.unwrap();
+        let signed_user = create_user(&mock, new_user).await.unwrap();
 
         assert_eq!(signed_user.token, TOKEN);
     }
@@ -244,33 +250,29 @@ mod tests {
             email: "name@email.com".to_string(),
             password: test_password(),
         };
-        let deps = unimock::Unimock::new()
-            .mock(|mock: &mut MockFetchUserAndPasswordHashByEmail| {
-                mock.expect_fetch_user_and_password_hash_by_email()
-                    .once()
-                    .returning(|email| {
-                        Ok(Some((
-                            DbUser {
-                                id: test_user_id(),
-                                username: "Name".into(),
-                                email,
-                                bio: "".to_string(),
-                                image: None,
-                            },
-                            PasswordHash("".into()),
-                        )))
-                    });
-            })
-            .mock(|verify_password: &mut MockVerifyPassword| {
-                verify_password
-                    .expect_verify_password()
-                    .once()
-                    .returning(|_, _| Ok(()));
-            })
-            .mock(setup_current_time_mock)
-            .mock(setup_hmac_mock);
+        let mock = mock([
+            fetch_user_and_password_hash_by_email::Fn::each_call(matching!(_))
+                .answers(|email| {
+                    Ok(Some((
+                        DbUser {
+                            id: test_user_id(),
+                            username: "Name".into(),
+                            email,
+                            bio: "".to_string(),
+                            image: None,
+                        },
+                        PasswordHash("".into()),
+                    )))
+                })
+                .in_any_order(),
+            verify_password::Fn::each_call(matching!(_))
+                .answers(|_| (Ok(())))
+                .in_any_order(),
+            mock_current_time(),
+            mock_hmac(),
+        ]);
 
-        let signed_user = login(&deps, login_user).await.unwrap();
+        let signed_user = login(&mock, login_user).await.unwrap();
 
         assert_eq!(signed_user.token, TOKEN);
     }
