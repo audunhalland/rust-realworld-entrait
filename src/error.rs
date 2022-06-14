@@ -74,7 +74,7 @@ impl axum::response::IntoResponse for Error {
             }
 
             // Other errors get mapped normally.
-            _ => (),
+            // _ => (),
         }
 
         (self.status_code(), self.to_string()).into_response()

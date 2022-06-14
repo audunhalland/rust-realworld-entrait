@@ -1,5 +1,3 @@
-#![feature(generic_associated_types)]
-
 mod api;
 mod app;
 mod auth;

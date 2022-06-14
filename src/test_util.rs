@@ -2,26 +2,23 @@ use axum::http::header::*;
 use axum::http::StatusCode;
 use axum::{body::Body, http::Request};
 use bytes::Bytes;
-use hyper::Response;
-use serde::Deserialize;
 use serde::Serialize;
+use tower::ServiceExt;
 
 pub fn build_json_post_request(uri: &str, body: &impl Serialize) -> Request<Body> {
     Request::builder()
         .method("POST")
-        .uri("/api/users")
+        .uri(uri)
         .header(CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
         .body(Body::from(serde_json::to_vec(body).unwrap()))
         .unwrap()
 }
 
-pub async fn fetch_json_body<B>(response: Response<B>) -> (StatusCode, Bytes)
-where
-    B: hyper::body::HttpBody + std::fmt::Debug,
-{
+pub async fn request_json(router: axum::Router, request: Request<Body>) -> (StatusCode, Bytes) {
+    let response = router.oneshot(request).await.unwrap();
     let status = response.status();
     match hyper::body::to_bytes(response.into_body()).await {
         Ok(bytes) => (status, bytes),
-        Err(e) => panic!("error while fetching body"),
+        Err(_) => panic!("error while fetching body"),
     }
 }

@@ -14,7 +14,7 @@ hyper = { version = "0.14", features = ["full"] }
 bytes = "1"
 tower = "0.4"
 tower-http = { version = "0.2", features = ["trace"] }
-entrait = { git = "https://github.com/audunhalland/entrait", branch = "unimock-next" }
+entrait = { version = "0.3" }
 implementation = "0.1"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1"
@@ -29,7 +29,7 @@ jwt = "0.16"
 hmac = "0.12"
 sha2 = "0.10"
 mockall = "0.11"
-unimock = { git = "https://github.com/audunhalland/unimock", branch = "gat-mock" }
+unimock = "0.2"
 maplit = "1"
 tracing = "0.1"
 
@@ -37,3 +37,4 @@ tracing = "0.1"
 url = "2.0"
 dotenv = "0.15"
 mime = "0.3"
+assert_matches = "1"
