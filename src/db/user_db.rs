@@ -13,6 +13,7 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct PasswordHash(pub String);
 
 #[entrait(pub InsertUser, async_trait=true)]

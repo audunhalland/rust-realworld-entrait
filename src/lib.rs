@@ -3,6 +3,7 @@ mod app;
 mod auth;
 mod db;
 mod error;
+mod password;
 mod types;
 mod user;
 

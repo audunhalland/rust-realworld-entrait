@@ -1,8 +1,8 @@
 use crate::auth;
 use crate::db::user_db;
-use crate::error::*;
+use crate::error::{AppResult, Error};
+use crate::password;
 
-use anyhow::Context;
 use entrait::unimock_test::*;
 use maplit::*;
 
@@ -50,7 +50,7 @@ struct AuthUserClaims {
 
 #[entrait(pub CreateUser, async_trait = true)]
 async fn create_user(
-    deps: &(impl HashPassword + user_db::InsertUser + auth::SignUserId),
+    deps: &(impl password::HashPassword + user_db::InsertUser + auth::SignUserId),
     new_user: NewUser,
 ) -> AppResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
@@ -64,7 +64,7 @@ async fn create_user(
 
 #[entrait(pub Login, async_trait = true)]
 async fn login(
-    deps: &(impl user_db::FetchUserAndPasswordHashByEmail + VerifyPassword + auth::SignUserId),
+    deps: &(impl user_db::FetchUserAndPasswordHashByEmail + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> AppResult<SignedUser> {
     let (db_user, password_hash) = deps
@@ -109,49 +109,6 @@ fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> Signe
     }
 }
 
-#[entrait(pub HashPassword, async_trait=true, unimock=test)]
-async fn hash_password<D>(_: &D, password: String) -> AppResult<user_db::PasswordHash> {
-    use argon2::password_hash::SaltString;
-    use argon2::Argon2;
-
-    // Argon2 hashing is designed to be computationally intensive,
-    // so we need to do this on a blocking thread.
-    Ok(
-        tokio::task::spawn_blocking(move || -> AppResult<user_db::PasswordHash> {
-            let salt = SaltString::generate(rand::thread_rng());
-            Ok(user_db::PasswordHash(
-                argon2::PasswordHash::generate(Argon2::default(), password, salt.as_str())
-                    .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
-                    .to_string(),
-            ))
-        })
-        .await
-        .context("panic in generating password hash")??,
-    )
-}
-
-#[entrait(VerifyPassword, async_trait=true, unimock=test)]
-async fn verify_password<D>(
-    _: &D,
-    password: String,
-    password_hash: user_db::PasswordHash,
-) -> AppResult<()> {
-    use argon2::{Argon2, PasswordHash};
-
-    Ok(tokio::task::spawn_blocking(move || -> AppResult<()> {
-        let hash = PasswordHash::new(&password_hash.0)
-            .map_err(|e| anyhow::anyhow!("invalid password hash: {}", e))?;
-
-        hash.verify_password(&[&Argon2::default()], password)
-            .map_err(|e| match e {
-                argon2::password_hash::Error::Password => Error::Unauthorized,
-                _ => anyhow::anyhow!("failed to verify password hash: {}", e).into(),
-            })
-    })
-    .await
-    .context("panic in verifying password hash")??)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,7 +123,7 @@ mod tests {
     }
 
     pub fn mock_hash_password() -> unimock::Clause {
-        hash_password::Fn::next_call(matching!(_))
+        password::hash_password::Fn::next_call(matching!(_))
             .answers(|_| Ok(user_db::PasswordHash("h4sh".to_string())))
             .once()
             .in_order()
@@ -228,7 +185,7 @@ mod tests {
             })
             .once()
             .in_order(),
-            verify_password::Fn::next_call(matching!(_))
+            password::verify_password::Fn::next_call(matching!(_))
                 .answers(|_| Ok(()))
                 .once()
                 .in_order(),
