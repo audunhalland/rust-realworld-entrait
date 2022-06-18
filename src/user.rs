@@ -34,11 +34,11 @@ pub struct NewUser {
 #[derive(serde::Deserialize, Default, PartialEq, Eq)]
 #[serde(default)]
 pub struct UserUpdate {
-    email: Option<String>,
-    username: Option<String>,
-    password: Option<String>,
-    bio: Option<String>,
-    image: Option<String>,
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub bio: Option<String>,
+    pub image: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -70,11 +70,7 @@ async fn login(
     let (db_user, password_hash) = deps
         .fetch_user_and_password_hash_by_email(login_user.email)
         .await?
-        .ok_or(Error::UnprocessableEntity {
-            errors: hashmap! {
-                "email".into() => vec!["does not exist".into()]
-            },
-        })?;
+        .ok_or(Error::EmailDoesNotExist)?;
 
     deps.verify_password(login_user.password, password_hash)
         .await?;
@@ -86,17 +82,26 @@ async fn login(
 async fn fetch_user(
     deps: &impl user_db::FetchUserAndPasswordHashByEmail,
     user_id: auth::Authenticated<UserId>,
-) -> Result<SignedUser, Error> {
+) -> AppResult<SignedUser> {
     todo!()
 }
 
 #[entrait(pub UpdateUser, async_trait = true)]
-async fn update_user<D>(
-    deps: D,
+async fn update_user(
+    deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
     update: UserUpdate,
-) -> Result<SignedUser, Error> {
-    todo!()
+) -> AppResult<SignedUser> {
+    let password_hash = if let Some(password) = &update.password {
+        Some(deps.hash_password(password.clone()).await?)
+    } else {
+        None
+    };
+
+    Ok(sign_db_user(
+        deps,
+        deps.update_user(user_id.0, update, password_hash).await?,
+    ))
 }
 
 fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> SignedUser {

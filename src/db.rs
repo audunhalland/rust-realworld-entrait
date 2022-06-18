@@ -1,5 +1,8 @@
 use crate::app::App;
+use crate::error::Error;
+
 use entrait::unimock_test::*;
+use sqlx::error::DatabaseError;
 use sqlx::PgPool;
 
 pub mod user_db;
@@ -15,11 +18,42 @@ impl GetPgPool for sqlx::PgPool {
     }
 }
 
+trait DbResultExt<T> {
+    fn on_constraint(
+        self,
+        name: &str,
+        f: impl FnOnce(Box<dyn DatabaseError>) -> Error,
+    ) -> Result<T, Error>;
+}
+
+impl<T, E> DbResultExt<T> for Result<T, E>
+where
+    E: Into<Error>,
+{
+    fn on_constraint(
+        self,
+        name: &str,
+        map_err: impl FnOnce(Box<dyn DatabaseError>) -> Error,
+    ) -> Result<T, Error> {
+        self.map_err(|e| match e.into() {
+            Error::Sqlx(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => {
+                map_err(dbe)
+            }
+            e => e,
+        })
+    }
+}
+
 #[cfg(test)]
 async fn create_test_db() -> sqlx::PgPool {
+    use sha2::Digest;
     use sqlx::Connection;
 
-    let db_name = format!("test_db_{}", std::thread::current().name().unwrap());
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(std::thread::current().name().unwrap().as_bytes());
+    let thread_hash = hex::encode(hasher.finalize());
+    let db_name = &thread_hash[0..24];
+
     let mut url = database_server_url();
     let mut connection = sqlx::PgConnection::connect(url.as_str()).await.unwrap();
 
