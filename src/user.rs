@@ -153,22 +153,6 @@ async fn verify_password<D>(
 }
 
 #[cfg(test)]
-pub mod test {
-    use super::*;
-    use unimock::*;
-
-    fn test_password_hash() -> user_db::PasswordHash {
-        user_db::PasswordHash("h4sh".to_string())
-    }
-
-    pub fn mock_hash_password() -> unimock::Clause {
-        hash_password::Fn::each_call(matching!(_))
-            .answers(|_| Ok(test_password_hash()))
-            .in_any_order()
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use unimock::*;
@@ -181,6 +165,13 @@ mod tests {
         uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap()
     }
 
+    pub fn mock_hash_password() -> unimock::Clause {
+        hash_password::Fn::next_call(matching!(_))
+            .answers(|_| Ok(user_db::PasswordHash("h4sh".to_string())))
+            .once()
+            .in_order()
+    }
+
     #[tokio::test]
     async fn test_create_user() {
         let new_user = NewUser {
@@ -189,10 +180,8 @@ mod tests {
             password: "password".to_string(),
         };
         let mock = mock([
-            auth::sign_user_id::Fn::each_call(matching!(_))
-                .returns(test_token())
-                .in_any_order(),
-            user_db::insert_user::Fn::each_call(matching!(_, _, _))
+            mock_hash_password(),
+            user_db::insert_user::Fn::next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
                 .answers(|(username, email, _)| {
                     Ok(user_db::DbUser {
                         id: test_user_id(),
@@ -202,8 +191,12 @@ mod tests {
                         image: None,
                     })
                 })
-                .in_any_order(),
-            super::test::mock_hash_password(),
+                .once()
+                .in_order(),
+            auth::sign_user_id::Fn::next_call(matching!(_))
+                .returns(test_token())
+                .once()
+                .in_order(),
         ]);
 
         let signed_user = create_user(&mock, new_user).await.unwrap();
@@ -218,7 +211,7 @@ mod tests {
             password: "password".to_string(),
         };
         let mock = mock([
-            user_db::fetch_user_and_password_hash_by_email::Fn::each_call(matching!(
+            user_db::fetch_user_and_password_hash_by_email::Fn::next_call(matching!(
                 "name@email.com"
             ))
             .answers(|email| {
@@ -233,13 +226,16 @@ mod tests {
                     user_db::PasswordHash("h4sh".into()),
                 )))
             })
-            .in_any_order(),
-            verify_password::Fn::each_call(matching!(_))
-                .answers(|_| (Ok(())))
-                .in_any_order(),
-            auth::sign_user_id::Fn::each_call(matching!(_))
+            .once()
+            .in_order(),
+            verify_password::Fn::next_call(matching!(_))
+                .answers(|_| Ok(()))
+                .once()
+                .in_order(),
+            auth::sign_user_id::Fn::next_call(matching!(_))
                 .returns(test_token())
-                .in_any_order(),
+                .once()
+                .in_order(),
         ]);
 
         let signed_user = login(&mock, login_user).await.unwrap();
