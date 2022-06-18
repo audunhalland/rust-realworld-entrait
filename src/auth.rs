@@ -7,8 +7,28 @@ use axum::TypedHeader;
 use entrait::unimock_test::*;
 use headers::authorization::Credentials;
 use headers::Authorization;
+use jwt::SignWithKey;
 use jwt::VerifyWithKey;
 use uuid::Uuid;
+
+const DEFAULT_SESSION_LENGTH: time::Duration = time::Duration::weeks(2);
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct AuthUserClaims {
+    user_id: Uuid,
+    /// Standard JWT `exp` claim.
+    exp: i64,
+}
+
+#[entrait(pub SignUserId)]
+fn sign_user_id(deps: &(impl GetCurrentTime + GetJwtSigningKey), user_id: UserId) -> String {
+    AuthUserClaims {
+        user_id: user_id.0,
+        exp: (deps.get_current_time() + DEFAULT_SESSION_LENGTH).unix_timestamp(),
+    }
+    .sign_with_key(deps.get_jwt_signing_key())
+    .expect("HMAC signing should be infallible")
+}
 
 /// Marker/Wrapper type for anything authenticated
 #[derive(Clone)]
@@ -36,6 +56,9 @@ fn authenticate(
     Ok(Authenticated(UserId(claims.user_id)))
 }
 
+///
+/// Data for `Token` authorization scheme.
+///
 #[derive(Debug)]
 pub struct Token(String);
 
@@ -75,9 +98,26 @@ impl<B: Send> axum::extract::FromRequest<B> for Token {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct AuthUserClaims {
-    user_id: Uuid,
-    /// Standard JWT `exp` claim.
-    exp: i64,
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use unimock::*;
+
+    #[test]
+    fn should_sign_and_authenticate_token() {
+        let user_id =
+            UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap());
+        let unimock = mock(Some(crate::app::test::mock_app_basics()));
+        let token = sign_user_id(&unimock, user_id.clone());
+
+        assert_eq!(
+            "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt",
+            token
+        );
+
+        let Authenticated(result_user_id) =
+            authenticate(&unimock, Token(format!("Token {token}"))).unwrap();
+
+        assert_eq!(user_id.0, result_user_id.0);
+    }
 }

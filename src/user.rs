@@ -1,15 +1,10 @@
-use crate::app::{GetCurrentTime, GetJwtSigningKey};
-use crate::auth::Authenticated;
+use crate::auth;
 use crate::db::user_db;
 use crate::error::*;
 
 use anyhow::Context;
 use entrait::unimock_test::*;
-use jwt::SignWithKey;
 use maplit::*;
-use time::OffsetDateTime;
-
-const DEFAULT_SESSION_LENGTH: time::Duration = time::Duration::weeks(2);
 
 #[derive(Clone, Debug)]
 pub struct UserId(pub uuid::Uuid);
@@ -55,7 +50,7 @@ struct AuthUserClaims {
 
 #[entrait(pub CreateUser, async_trait = true)]
 async fn create_user(
-    deps: &(impl user_db::InsertUser + HashPassword + GetCurrentTime + GetJwtSigningKey),
+    deps: &(impl HashPassword + user_db::InsertUser + auth::SignUserId),
     new_user: NewUser,
 ) -> AppResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
@@ -64,19 +59,12 @@ async fn create_user(
         .insert_user(new_user.username, new_user.email, password_hash)
         .await?;
 
-    Ok(sign_db_user(
-        db_user,
-        deps.get_current_time(),
-        deps.get_jwt_signing_key(),
-    ))
+    Ok(sign_db_user(deps, db_user))
 }
 
 #[entrait(pub Login, async_trait = true)]
 async fn login(
-    deps: &(impl VerifyPassword
-          + user_db::FetchUserAndPasswordHashByEmail
-          + GetCurrentTime
-          + GetJwtSigningKey),
+    deps: &(impl user_db::FetchUserAndPasswordHashByEmail + VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> AppResult<SignedUser> {
     let (db_user, password_hash) = deps
@@ -91,17 +79,13 @@ async fn login(
     deps.verify_password(login_user.password, password_hash)
         .await?;
 
-    Ok(sign_db_user(
-        db_user,
-        deps.get_current_time(),
-        deps.get_jwt_signing_key(),
-    ))
+    Ok(sign_db_user(deps, db_user))
 }
 
 #[entrait(pub FetchUser, async_trait = true)]
 async fn fetch_user(
     deps: &impl user_db::FetchUserAndPasswordHashByEmail,
-    user_id: Authenticated<UserId>,
+    user_id: auth::Authenticated<UserId>,
 ) -> Result<SignedUser, Error> {
     todo!()
 }
@@ -109,27 +93,16 @@ async fn fetch_user(
 #[entrait(pub UpdateUser, async_trait = true)]
 async fn update_user<D>(
     deps: D,
-    user_id: Authenticated<UserId>,
+    user_id: auth::Authenticated<UserId>,
     update: UserUpdate,
 ) -> Result<SignedUser, Error> {
     todo!()
 }
 
-fn sign_db_user(
-    db_user: user_db::DbUser,
-    timestamp: OffsetDateTime,
-    signing_key: &hmac::Hmac<sha2::Sha384>,
-) -> SignedUser {
-    let token = AuthUserClaims {
-        user_id: db_user.id,
-        exp: (timestamp + DEFAULT_SESSION_LENGTH).unix_timestamp(),
-    }
-    .sign_with_key(signing_key)
-    .expect("HMAC signing should be infallible");
-
+fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> SignedUser {
     SignedUser {
         email: db_user.email,
-        token,
+        token: deps.sign_user_id(UserId(db_user.id)),
         username: db_user.username,
         bio: db_user.bio,
         image: db_user.image,
@@ -200,7 +173,9 @@ mod tests {
     use super::*;
     use unimock::*;
 
-    const TEST_TOKEN: &'static str = "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt";
+    fn test_token() -> String {
+        String::from("t3stt0k1")
+    }
 
     fn test_user_id() -> uuid::Uuid {
         uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap()
@@ -214,6 +189,9 @@ mod tests {
             password: "password".to_string(),
         };
         let mock = mock([
+            auth::sign_user_id::Fn::each_call(matching!(_))
+                .returns(test_token())
+                .in_any_order(),
             user_db::insert_user::Fn::each_call(matching!(_, _, _))
                 .answers(|(username, email, _)| {
                     Ok(user_db::DbUser {
@@ -226,12 +204,11 @@ mod tests {
                 })
                 .in_any_order(),
             super::test::mock_hash_password(),
-            crate::app::test::mock_app_basics(),
         ]);
 
         let signed_user = create_user(&mock, new_user).await.unwrap();
 
-        assert_eq!(signed_user.token, TEST_TOKEN);
+        assert_eq!(signed_user.token, test_token());
     }
 
     #[tokio::test]
@@ -260,11 +237,13 @@ mod tests {
             verify_password::Fn::each_call(matching!(_))
                 .answers(|_| (Ok(())))
                 .in_any_order(),
-            crate::app::test::mock_app_basics(),
+            auth::sign_user_id::Fn::each_call(matching!(_))
+                .returns(test_token())
+                .in_any_order(),
         ]);
 
         let signed_user = login(&mock, login_user).await.unwrap();
 
-        assert_eq!(signed_user.token, TEST_TOKEN);
+        assert_eq!(signed_user.token, test_token());
     }
 }
