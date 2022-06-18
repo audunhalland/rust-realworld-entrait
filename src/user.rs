@@ -4,7 +4,6 @@ use crate::error::{AppResult, Error};
 use crate::password;
 
 use entrait::unimock_test::*;
-use maplit::*;
 
 #[derive(Clone, Debug)]
 pub struct UserId(pub uuid::Uuid);
@@ -64,11 +63,11 @@ async fn create_user(
 
 #[entrait(pub Login, async_trait = true)]
 async fn login(
-    deps: &(impl user_db::FetchUserAndPasswordHashByEmail + password::VerifyPassword + auth::SignUserId),
+    deps: &(impl user_db::FindUserByEmail + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> AppResult<SignedUser> {
     let (db_user, password_hash) = deps
-        .fetch_user_and_password_hash_by_email(login_user.email)
+        .find_user_by_email(login_user.email)
         .await?
         .ok_or(Error::EmailDoesNotExist)?;
 
@@ -78,12 +77,17 @@ async fn login(
     Ok(sign_db_user(deps, db_user))
 }
 
-#[entrait(pub FetchUser, async_trait = true)]
-async fn fetch_user(
-    deps: &impl user_db::FetchUserAndPasswordHashByEmail,
+#[entrait(pub FetchCurrentUser, async_trait = true)]
+async fn fetch_current_user(
+    deps: &(impl user_db::FindUserById + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
 ) -> AppResult<SignedUser> {
-    todo!()
+    let (db_user, _) = deps
+        .find_user_by_id(user_id.0)
+        .await?
+        .ok_or(Error::CurrentUserDoesNotExist)?;
+
+    Ok(sign_db_user(deps, db_user))
 }
 
 #[entrait(pub UpdateUser, async_trait = true)]
@@ -173,23 +177,21 @@ mod tests {
             password: "password".to_string(),
         };
         let mock = mock([
-            user_db::fetch_user_and_password_hash_by_email::Fn::next_call(matching!(
-                "name@email.com"
-            ))
-            .answers(|email| {
-                Ok(Some((
-                    user_db::DbUser {
-                        id: test_user_id(),
-                        username: "Name".into(),
-                        email,
-                        bio: "".to_string(),
-                        image: None,
-                    },
-                    user_db::PasswordHash("h4sh".into()),
-                )))
-            })
-            .once()
-            .in_order(),
+            user_db::find_user_by_email::Fn::next_call(matching!("name@email.com"))
+                .answers(|email| {
+                    Ok(Some((
+                        user_db::DbUser {
+                            id: test_user_id(),
+                            username: "Name".into(),
+                            email,
+                            bio: "".to_string(),
+                            image: None,
+                        },
+                        user_db::PasswordHash("h4sh".into()),
+                    )))
+                })
+                .once()
+                .in_order(),
             password::verify_password::Fn::next_call(matching!(_))
                 .answers(|_| Ok(()))
                 .once()

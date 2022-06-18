@@ -13,6 +13,9 @@ pub enum Error {
     #[error("authentication required")]
     Unauthorized,
 
+    #[error("user does not exist")]
+    CurrentUserDoesNotExist,
+
     #[error("email does not exist")]
     EmailDoesNotExist,
 
@@ -33,6 +36,7 @@ impl Error {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::CurrentUserDoesNotExist => StatusCode::NOT_FOUND,
             Self::EmailDoesNotExist => StatusCode::UNPROCESSABLE_ENTITY,
             Self::UsernameTaken => StatusCode::UNPROCESSABLE_ENTITY,
             Self::EmailTaken => StatusCode::UNPROCESSABLE_ENTITY,
@@ -52,6 +56,7 @@ impl axum::response::IntoResponse for Error {
                 self.to_string(),
             )
                 .into_response(),
+            Self::CurrentUserDoesNotExist => (self.status_code(), ()).into_response(),
             Self::EmailDoesNotExist => {
                 unprocessable_entity_with_errors([("email".into(), vec!["does not exist".into()])])
             }

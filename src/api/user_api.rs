@@ -19,7 +19,7 @@ impl<A> UserApi<A>
 where
     A: user::CreateUser
         + user::Login
-        + user::FetchUser
+        + user::FetchCurrentUser
         + user::UpdateUser
         + auth::Authenticate
         + Sized
@@ -56,7 +56,7 @@ where
     async fn current_user(Extension(app): Extension<A>, token: Token) -> AppResult<JsonSignedUser> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
-            user: app.fetch_user(user_id).await?,
+            user: app.fetch_current_user(user_id).await?,
         }))
     }
 
@@ -185,7 +185,7 @@ mod tests {
                 .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
                 .once()
                 .in_order(),
-            fetch_user::Fn::next_call(matching!((user_id) if user_id.0.0 == test_uuid()))
+            fetch_current_user::Fn::next_call(matching!((user_id) if user_id.0.0 == test_uuid()))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),

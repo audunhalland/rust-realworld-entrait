@@ -46,8 +46,34 @@ async fn insert_user(
     })
 }
 
-#[entrait(pub FetchUserAndPasswordHashByEmail, async_trait = true)]
-async fn fetch_user_and_password_hash_by_email(
+#[entrait(pub FindUserById, async_trait = true)]
+async fn find_user_by_id(
+    deps: &impl GetPgPool,
+    id: UserId,
+) -> AppResult<Option<(DbUser, PasswordHash)>> {
+    let record = sqlx::query!(
+        r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE id = $1"#,
+        id.0
+    )
+    .fetch_optional(deps.get_pg_pool())
+    .await?;
+
+    Ok(record.map(|record| {
+        (
+            DbUser {
+                id: record.id,
+                username: record.username,
+                email: record.email,
+                bio: record.bio,
+                image: record.image,
+            },
+            PasswordHash(record.password_hash),
+        )
+    }))
+}
+
+#[entrait(pub FindUserByEmail, async_trait = true)]
+async fn find_user_by_email(
     deps: &impl GetPgPool,
     email: String,
 ) -> AppResult<Option<(DbUser, PasswordHash)>> {
