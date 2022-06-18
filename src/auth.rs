@@ -1,38 +1,25 @@
-use crate::app::{App, GetCurrentTime, GetJwtSigningKey};
+use crate::app::{GetCurrentTime, GetJwtSigningKey};
 use crate::error::Error;
 use crate::user::UserId;
 
-use axum::extract::Extension;
-use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderValue;
+use axum::TypedHeader;
 use entrait::unimock_test::*;
-use implementation::Impl;
+use headers::authorization::Credentials;
+use headers::Authorization;
 use jwt::VerifyWithKey;
 use uuid::Uuid;
 
+/// Marker/Wrapper type for anything authenticated
+#[derive(Clone)]
 pub struct Authenticated<T>(pub T);
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct AuthUserClaims {
-    user_id: Uuid,
-    /// Standard JWT `exp` claim.
-    exp: i64,
-}
-
-const SCHEME_PREFIX: &str = "Token ";
-
-#[entrait(Authenticate)]
+#[entrait(pub Authenticate)]
 fn authenticate(
     deps: &(impl GetCurrentTime + GetJwtSigningKey),
-    auth_header: &HeaderValue,
+    token: Token,
 ) -> Result<Authenticated<UserId>, Error> {
-    let auth_header = auth_header.to_str().map_err(|_| Error::Unauthorized)?;
-
-    if !auth_header.starts_with(SCHEME_PREFIX) {
-        return Err(Error::Unauthorized);
-    }
-
-    let token = &auth_header[SCHEME_PREFIX.len()..];
+    let token = token.token();
 
     let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
         .map_err(|_| Error::Unauthorized)?;
@@ -49,22 +36,48 @@ fn authenticate(
     Ok(Authenticated(UserId(claims.user_id)))
 }
 
+#[derive(Debug)]
+pub struct Token(String);
+
+impl Token {
+    pub fn token(&self) -> &str {
+        &self.0.as_str()["Token ".len()..]
+    }
+}
+
+impl Credentials for Token {
+    const SCHEME: &'static str = "Token";
+
+    fn decode(value: &HeaderValue) -> Option<Self> {
+        let auth_header = value.to_str().ok()?;
+
+        Some(Token(auth_header.to_string()))
+    }
+
+    fn encode(&self) -> HeaderValue {
+        HeaderValue::from_str(&self.0).unwrap()
+    }
+}
+
 #[async_trait::async_trait]
-impl<B: Send> axum::extract::FromRequest<B> for Authenticated<UserId> {
+impl<B: Send> axum::extract::FromRequest<B> for Token {
     type Rejection = Error;
 
     async fn from_request(
         req: &mut axum::extract::RequestParts<B>,
     ) -> Result<Self, Self::Rejection> {
-        let Extension(app): Extension<Impl<App>> = Extension::from_request(req)
-            .await
-            .expect("BUG: App was not added as an extension");
+        let TypedHeader(Authorization(token)) =
+            TypedHeader::<Authorization<Token>>::from_request(req)
+                .await
+                .map_err(|_| Error::Unauthorized)?;
 
-        let auth_header = req
-            .headers()
-            .get(AUTHORIZATION)
-            .ok_or(Error::Unauthorized)?;
-
-        app.authenticate(auth_header)
+        Ok(token)
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct AuthUserClaims {
+    user_id: Uuid,
+    /// Standard JWT `exp` claim.
+    exp: i64,
 }

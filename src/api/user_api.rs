@@ -1,6 +1,6 @@
-use crate::auth::Authenticated;
+use crate::auth::{self, Token};
 use crate::error::AppResult;
-use crate::user::{self, UserId};
+use crate::user;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
@@ -21,6 +21,7 @@ where
         + user::Login
         + user::FetchUser
         + user::UpdateUser
+        + auth::Authenticate
         + Sized
         + Clone
         + Send
@@ -52,10 +53,8 @@ where
         }))
     }
 
-    async fn current_user(
-        Extension(app): Extension<A>,
-        user_id: Authenticated<UserId>,
-    ) -> AppResult<JsonSignedUser> {
+    async fn current_user(Extension(app): Extension<A>, token: Token) -> AppResult<JsonSignedUser> {
+        let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.fetch_user(user_id).await?,
         }))
@@ -63,9 +62,10 @@ where
 
     async fn update_user(
         Extension(app): Extension<A>,
-        user_id: Authenticated<UserId>,
+        token: Token,
         Json(body): Json<UserBody<user::UserUpdate>>,
     ) -> AppResult<JsonSignedUser> {
+        let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.update_user(user_id, body.user).await?,
         }))
@@ -75,42 +75,47 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::Authenticated;
     use crate::db::user_db;
     use crate::db::user_db::DbUser;
     use crate::test_util::*;
     use crate::user::*;
+    use axum::body::Body;
     use axum::http::StatusCode;
     use unimock::*;
+
+    fn test_uuid() -> uuid::Uuid {
+        uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap()
+    }
+
+    fn test_signed_user() -> SignedUser {
+        SignedUser {
+            email: "e".to_string(),
+            token: "e".to_string(),
+            username: "e".to_string(),
+            bio: "e".to_string(),
+            image: None,
+        }
+    }
 
     #[tokio::test]
     async fn unit_test_create_user() {
         let unimock = mock(Some(
             create_user::Fn::next_call(matching!(_))
-                .answers(|_| {
-                    Ok(SignedUser {
-                        email: "e".to_string(),
-                        token: "e".to_string(),
-                        username: "e".to_string(),
-                        bio: "e".to_string(),
-                        image: None,
-                    })
-                })
+                .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),
         ));
 
         let (status, bytes) = request_json(
             UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
-            build_json_post_request(
-                "/users",
-                &UserBody {
-                    user: user::NewUser {
-                        username: "username".to_string(),
-                        email: "email".to_string(),
-                        password: "password".to_string(),
-                    },
+            axum::http::Request::post("/users").with_json_body(UserBody {
+                user: user::NewUser {
+                    username: "username".to_string(),
+                    email: "email".to_string(),
+                    password: "password".to_string(),
                 },
-            ),
+            }),
         )
         .await;
 
@@ -125,8 +130,7 @@ mod tests {
                 each.call(matching!("username", "email", _)).answers(
                     move |(username, email, _)| {
                         Ok(DbUser {
-                            id: uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f")
-                                .unwrap(),
+                            id: test_uuid(),
                             username,
                             email,
                             bio: "bio".to_string(),
@@ -140,16 +144,13 @@ mod tests {
 
         let (status, bytes) = request_json(
             UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
-            build_json_post_request(
-                "/users",
-                &UserBody {
-                    user: user::NewUser {
-                        username: "username".to_string(),
-                        email: "email".to_string(),
-                        password: "password".to_string(),
-                    },
+            axum::http::Request::post("/users").with_json_body(UserBody {
+                user: user::NewUser {
+                    username: "username".to_string(),
+                    email: "email".to_string(),
+                    password: "password".to_string(),
                 },
-            ),
+            }),
         )
         .await;
 
@@ -162,5 +163,44 @@ mod tests {
             user_body.user.token
         );
         assert_eq!("username", user_body.user.username);
+    }
+
+    #[tokio::test]
+    async fn protected_endpoint_with_no_token_should_give_401() {
+        let unimock = mock(None);
+        let (status, _) = request_json(
+            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
+            axum::http::Request::get("/user")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(StatusCode::UNAUTHORIZED, status);
+    }
+
+    #[tokio::test]
+    async fn current_user_should_work() {
+        let unimock = mock([
+            auth::authenticate::Fn::next_call(matching!((token) if token.token() == "123"))
+                .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
+                .once()
+                .in_order(),
+            fetch_user::Fn::next_call(matching!((user_id) if user_id.0.0 == test_uuid()))
+                .answers(|_| Ok(test_signed_user()))
+                .once()
+                .in_order(),
+        ]);
+
+        let (status, bytes) = request_json(
+            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
+            axum::http::Request::get("/user")
+                .header("Authorization", "Token 123")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+
+        assert_eq!(StatusCode::OK, status);
+        let _: UserBody<user::SignedUser> = serde_json::from_slice(&bytes).unwrap();
     }
 }

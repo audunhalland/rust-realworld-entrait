@@ -11,6 +11,7 @@ use time::OffsetDateTime;
 
 const DEFAULT_SESSION_LENGTH: time::Duration = time::Duration::weeks(2);
 
+#[derive(Clone, Debug)]
 pub struct UserId(pub uuid::Uuid);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
