@@ -37,7 +37,7 @@ pub mod test {
 
     pub fn mock_current_time() -> unimock::Clause {
         get_current_time::Fn::each_call(matching!())
-            .returns(OffsetDateTime::from_unix_timestamp(0))
+            .returns(OffsetDateTime::from_unix_timestamp(0).unwrap())
             .in_any_order()
     }
 

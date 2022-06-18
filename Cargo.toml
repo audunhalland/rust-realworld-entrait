@@ -8,21 +8,21 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
 axum = { version = "0.5", features = ["tower-log", "headers"] }
 hyper = { version = "0.14", features = ["full"] }
 bytes = "1"
 tower = "0.4"
-tower-http = { version = "0.2", features = ["trace"] }
+tower-http = { version = "0.3", features = ["trace"] }
 entrait = { version = "0.3" }
 implementation = "0.1"
-serde = { version = "1.0.130", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-time = "0.2"
+time = "0.3"
 thiserror = "1"
 async-trait = "0.1"
-uuid = { version = "0.8", features = ["serde", "v4"] }
-argon2 = "0.3"
+uuid = { version = "1", features = ["serde", "v4"] }
+argon2 = "0.4"
 rand = "0.8"
 anyhow = "1"
 jwt = "0.16"
