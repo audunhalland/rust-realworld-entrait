@@ -1,8 +1,10 @@
-use realworld_app::{app::App, config::Config};
+use realworld_app::{api::api_router, app::App, config::Config};
 
+use anyhow::Context;
 use clap::Parser;
 use implementation::Impl;
 use std::sync::Arc;
+use tower::ServiceBuilder;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,11 +14,25 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::parse();
     let db = realworld_db::Db::init(&config.database_url).await?;
 
-    realworld_app::serve(App {
+    // "link" the application by using the Impl type.
+    // All trait implementations are for that type.
+    let app = Impl::new(App {
         config: Arc::new(config),
         db: Impl::new(db),
-    })
-    .await?;
+    });
+
+    let router = api_router().layer(
+        ServiceBuilder::new()
+            // Inject the app into the axum context
+            .layer(axum::extract::Extension(app))
+            // Enables logging. Use `RUST_LOG=tower_http=debug`
+            .layer(tower_http::trace::TraceLayer::new_for_http()),
+    );
+
+    axum::Server::bind(&"0.0.0.0:8080".parse()?)
+        .serve(router.into_make_service())
+        .await
+        .context("error running HTTP server")?;
 
     Ok(())
 }
