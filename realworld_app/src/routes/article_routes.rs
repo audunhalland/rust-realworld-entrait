@@ -4,7 +4,7 @@ use realworld_core::error::RwResult;
 
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Json;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct ArticleBody<T = article::Article> {
@@ -19,15 +19,15 @@ struct MultipleArticlesBody {
 
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
-pub struct FeedArticlesQuery {
+struct FeedArticlesQuery {
     // See comment on these fields in `ListArticlesQuery` above.
     limit: Option<i64>,
     offset: Option<i64>,
 }
 
-pub struct ArticleApi<D>(std::marker::PhantomData<D>);
+pub struct ArticleRoutes<A>(std::marker::PhantomData<A>);
 
-impl<A> ArticleApi<A>
+impl<A> ArticleRoutes<A>
 where
     A: article::ListArticles
         + article::GetArticle
@@ -43,8 +43,8 @@ where
         + Sync
         + 'static,
 {
-    pub fn router() -> Router {
-        Router::new()
+    pub fn router() -> axum::Router {
+        axum::Router::new()
             .route(
                 "/articles",
                 get(Self::list_articles).post(Self::create_article),
@@ -147,8 +147,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use unimock::*;
 
-    fn test_router(deps: Unimock) -> Router {
-        ArticleApi::<Unimock>::router().layer(Extension(deps.clone()))
+    fn test_router(deps: Unimock) -> axum::Router {
+        ArticleRoutes::<Unimock>::router().layer(Extension(deps))
     }
 
     #[tokio::test]

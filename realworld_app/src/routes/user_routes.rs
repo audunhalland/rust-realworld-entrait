@@ -4,18 +4,16 @@ use realworld_core::error::RwResult;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Json;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct UserBody<T> {
     user: T,
 }
 
-type JsonSignedUser = Json<UserBody<user::SignedUser>>;
+pub struct UserRoutes<A>(std::marker::PhantomData<A>);
 
-pub struct UserApi<D>(std::marker::PhantomData<D>);
-
-impl<A> UserApi<A>
+impl<A> UserRoutes<A>
 where
     A: user::CreateUser
         + user::Login
@@ -28,8 +26,8 @@ where
         + Sync
         + 'static,
 {
-    pub fn router() -> Router {
-        Router::new()
+    pub fn router() -> axum::Router {
+        axum::Router::new()
             .route("/users", post(Self::create))
             .route("/users/login", post(Self::login))
             .route("/user", get(Self::current_user).put(Self::update_user))
@@ -38,7 +36,7 @@ where
     async fn create(
         Extension(app): Extension<A>,
         Json(body): Json<UserBody<user::NewUser>>,
-    ) -> RwResult<JsonSignedUser> {
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: app.create_user(body.user).await?,
         }))
@@ -47,13 +45,16 @@ where
     async fn login(
         Extension(app): Extension<A>,
         Json(body): Json<UserBody<user::LoginUser>>,
-    ) -> RwResult<JsonSignedUser> {
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: app.login(body.user).await?,
         }))
     }
 
-    async fn current_user(Extension(app): Extension<A>, token: Token) -> RwResult<JsonSignedUser> {
+    async fn current_user(
+        Extension(app): Extension<A>,
+        token: Token,
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.fetch_current_user(user_id).await?,
@@ -64,7 +65,7 @@ where
         Extension(app): Extension<A>,
         token: Token,
         Json(body): Json<UserBody<user::UserUpdate>>,
-    ) -> RwResult<JsonSignedUser> {
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.update_user(user_id, body.user).await?,
@@ -84,8 +85,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use unimock::*;
 
-    fn test_router(deps: Unimock) -> Router {
-        UserApi::<Unimock>::router().layer(Extension(deps.clone()))
+    fn test_router(deps: Unimock) -> axum::Router {
+        UserRoutes::<Unimock>::router().layer(Extension(deps))
     }
 
     fn test_uuid() -> uuid::Uuid {

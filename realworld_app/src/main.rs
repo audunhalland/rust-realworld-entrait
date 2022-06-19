@@ -1,4 +1,4 @@
-use realworld_app::{api::api_router, app::App, config::Config};
+use realworld_app::{app::App, config::Config, routes};
 
 use anyhow::Context;
 use clap::Parser;
@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         db: Impl::new(db),
     });
 
-    let router = api_router().layer(
+    let router = routes::api_router().layer(
         ServiceBuilder::new()
             // Inject the app into the axum context
             .layer(axum::extract::Extension(app))
