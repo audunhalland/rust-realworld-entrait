@@ -1,15 +1,26 @@
-use crate::app::App;
-use crate::error::Error;
+use realworld_core::error::RwError;
 
-use entrait::unimock_test::*;
+use entrait::unimock::*;
 use sqlx::error::DatabaseError;
 use sqlx::PgPool;
 
 pub mod user_db;
 
+pub struct Db {
+    pg_pool: PgPool,
+}
+
+pub trait DbApi:
+    user_db::FindUserByEmail + user_db::FindUserById + user_db::InsertUser + user_db::UpdateUser
+{
+}
+
+impl DbApi for ::implementation::Impl<Db> {}
+impl DbApi for unimock::Unimock {}
+
 #[entrait(pub GetPgPool)]
-fn get_pg_pool(_: &App) -> &PgPool {
-    unimplemented!()
+fn get_pg_pool(db: &Db) -> &PgPool {
+    &db.pg_pool
 }
 
 impl GetPgPool for sqlx::PgPool {
@@ -22,21 +33,21 @@ trait DbResultExt<T> {
     fn on_constraint(
         self,
         name: &str,
-        f: impl FnOnce(Box<dyn DatabaseError>) -> Error,
-    ) -> Result<T, Error>;
+        f: impl FnOnce(Box<dyn DatabaseError>) -> RwError,
+    ) -> Result<T, RwError>;
 }
 
 impl<T, E> DbResultExt<T> for Result<T, E>
 where
-    E: Into<Error>,
+    E: Into<RwError>,
 {
     fn on_constraint(
         self,
         name: &str,
-        map_err: impl FnOnce(Box<dyn DatabaseError>) -> Error,
-    ) -> Result<T, Error> {
+        map_err: impl FnOnce(Box<dyn DatabaseError>) -> RwError,
+    ) -> Result<T, RwError> {
         self.map_err(|e| match e.into() {
-            Error::Sqlx(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => {
+            RwError::Sqlx(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => {
                 map_err(dbe)
             }
             e => e,
@@ -73,7 +84,7 @@ async fn create_test_db() -> sqlx::PgPool {
         .await
         .expect("Failed to connect to database");
 
-    sqlx::migrate!()
+    sqlx::migrate!("../migrations")
         .run(&pg_pool)
         .await
         .expect("Failed to migrate");

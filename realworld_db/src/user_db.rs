@@ -1,10 +1,9 @@
-use super::GetPgPool;
-use crate::db::DbResultExt;
-use crate::error::{AppResult, Error};
-use crate::user::UserId;
-use crate::user::UserUpdate;
+use crate::DbResultExt;
+use crate::GetPgPool;
+use realworld_core::error::{RwError, RwResult};
+use realworld_core::{PasswordHash, UserId};
 
-use entrait::unimock_test::*;
+use entrait::unimock::*;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,8 +15,14 @@ pub struct DbUser {
     pub image: Option<String>,
 }
 
-#[derive(Clone)]
-pub struct PasswordHash(pub String);
+#[derive(Clone, Default)]
+pub struct DbUserUpdate {
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub password_hash: Option<PasswordHash>,
+    pub bio: Option<String>,
+    pub image: Option<String>,
+}
 
 #[entrait(pub InsertUser, async_trait=true)]
 async fn insert_user(
@@ -25,7 +30,7 @@ async fn insert_user(
     username: String,
     email: String,
     password_hash: PasswordHash,
-) -> AppResult<DbUser> {
+) -> RwResult<DbUser> {
     let id = sqlx::query_scalar!(
         r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id"#,
         username,
@@ -34,8 +39,8 @@ async fn insert_user(
     )
     .fetch_one(deps.get_pg_pool())
     .await
-    .on_constraint("user_username_key", |_| Error::UsernameTaken)
-    .on_constraint("user_email_key", |_| Error::EmailTaken)?;
+    .on_constraint("user_username_key", |_| RwError::UsernameTaken)
+    .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
     Ok(DbUser {
         id,
@@ -50,7 +55,7 @@ async fn insert_user(
 async fn find_user_by_id(
     deps: &impl GetPgPool,
     id: UserId,
-) -> AppResult<Option<(DbUser, PasswordHash)>> {
+) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE id = $1"#,
         id.0
@@ -76,7 +81,7 @@ async fn find_user_by_id(
 async fn find_user_by_email(
     deps: &impl GetPgPool,
     email: String,
-) -> AppResult<Option<(DbUser, PasswordHash)>> {
+) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
         email
@@ -98,26 +103,8 @@ async fn find_user_by_email(
     }))
 }
 
-#[entrait(pub FetchUserById, async_trait=true)]
-async fn fetch_user_by_id(deps: &impl GetPgPool, id: Uuid) -> AppResult<DbUser> {
-    let db_user = sqlx::query_as!(
-        DbUser,
-        r#"SELECT id, email, username, bio, image FROM app.user WHERE id = $1"#,
-        id
-    )
-    .fetch_one(deps.get_pg_pool())
-    .await?;
-
-    Ok(db_user)
-}
-
 #[entrait(pub UpdateUser, async_trait=true)]
-async fn update_user(
-    deps: &impl GetPgPool,
-    id: UserId,
-    user: UserUpdate,
-    password_hash: Option<PasswordHash>,
-) -> AppResult<DbUser> {
+async fn update_user(deps: &impl GetPgPool, id: UserId, update: DbUserUpdate) -> RwResult<DbUser> {
     let user = sqlx::query!(
         // language=PostgreSQL
         r#"
@@ -130,17 +117,17 @@ async fn update_user(
         WHERE id = $6
         RETURNING email, username, bio, image
         "#,
-        user.email,
-        user.username,
-        password_hash.map(|hash| hash.0),
-        user.bio,
-        user.image,
+        update.email,
+        update.username,
+        update.password_hash.map(|hash| hash.0),
+        update.bio,
+        update.image,
         id.clone().0
     )
     .fetch_one(deps.get_pg_pool())
     .await
-    .on_constraint("user_username_key", |_| Error::UsernameTaken)
-    .on_constraint("user_email_key", |_| Error::EmailTaken)?;
+    .on_constraint("user_username_key", |_| RwError::UsernameTaken)
+    .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
     Ok(DbUser {
         id: id.0,
@@ -154,7 +141,7 @@ async fn update_user(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::create_test_db;
+    use crate::create_test_db;
 
     use assert_matches::*;
     use sqlx::PgPool;
@@ -183,7 +170,7 @@ mod tests {
         }
     }
 
-    async fn insert_test_user(pool: &PgPool, user: TestNewUser) -> AppResult<DbUser> {
+    async fn insert_test_user(pool: &PgPool, user: TestNewUser) -> RwResult<DbUser> {
         insert_user(
             pool,
             user.username.to_string(),
@@ -203,7 +190,10 @@ mod tests {
         assert_eq!("username", created_user.username);
         assert_eq!("email", created_user.email);
 
-        let fetched_user = fetch_user_by_id(&pool, created_user.id).await.unwrap();
+        let (fetched_user, _) = find_user_by_id(&pool, UserId(created_user.id))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(created_user, fetched_user);
     }
 
@@ -218,7 +208,7 @@ mod tests {
             .await
             .expect_err("should error");
 
-        assert_matches!(error, Error::UsernameTaken);
+        assert_matches!(error, RwError::UsernameTaken);
     }
 
     #[tokio::test]
@@ -238,7 +228,7 @@ mod tests {
         .await
         .expect_err("should error");
 
-        assert_matches!(error, Error::EmailTaken);
+        assert_matches!(error, RwError::EmailTaken);
     }
 
     #[tokio::test]
@@ -251,14 +241,13 @@ mod tests {
         let updated_user = update_user(
             &pool,
             UserId(created_user.id),
-            UserUpdate {
+            DbUserUpdate {
                 email: Some("newmail".to_string()),
                 username: Some("newname".to_string()),
-                password: None,
+                password_hash: Some(PasswordHash("newhash".to_string())),
                 bio: Some("newbio".to_string()),
                 image: Some("newimage".to_string()),
             },
-            Some(PasswordHash("newhash".to_string())),
         )
         .await
         .unwrap();
@@ -281,16 +270,15 @@ mod tests {
         let error = update_user(
             &pool,
             UserId(user.id),
-            UserUpdate {
+            DbUserUpdate {
                 username: Some("username".to_string()),
-                ..UserUpdate::default()
+                ..DbUserUpdate::default()
             },
-            None,
         )
         .await
         .expect_err("should error");
 
-        assert_matches!(error, Error::UsernameTaken);
+        assert_matches!(error, RwError::UsernameTaken);
     }
 
     #[tokio::test]
@@ -304,15 +292,14 @@ mod tests {
         let error = update_user(
             &pool,
             UserId(user.id),
-            UserUpdate {
+            DbUserUpdate {
                 email: Some("email".to_string()),
-                ..UserUpdate::default()
+                ..DbUserUpdate::default()
             },
-            None,
         )
         .await
         .expect_err("should error");
 
-        assert_matches!(error, Error::EmailTaken);
+        assert_matches!(error, RwError::EmailTaken);
     }
 }

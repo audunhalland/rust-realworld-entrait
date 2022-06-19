@@ -1,6 +1,8 @@
 use crate::Config;
+use realworld_db::{Db, DbApi};
 
 use entrait::unimock_test::*;
+use implementation::Impl;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -17,6 +19,28 @@ fn get_jwt_signing_key(app: &App) -> &hmac::Hmac<sha2::Sha384> {
 #[entrait(pub GetCurrentTime)]
 fn get_current_time(_: &App) -> OffsetDateTime {
     OffsetDateTime::now_utc()
+}
+
+pub trait GetDb {
+    type Target: DbApi + Send + Sync;
+
+    fn get_db(&self) -> &Self::Target;
+}
+
+impl GetDb for Impl<App> {
+    type Target = Impl<Db>;
+
+    fn get_db(&self) -> &Self::Target {
+        panic!()
+    }
+}
+
+impl GetDb for unimock::Unimock {
+    type Target = Self;
+
+    fn get_db(&self) -> &Self {
+        self
+    }
 }
 
 #[cfg(test)]

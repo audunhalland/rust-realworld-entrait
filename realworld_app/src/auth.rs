@@ -1,6 +1,6 @@
-use crate::app::{GetCurrentTime, GetJwtSigningKey};
-use crate::error::Error;
-use crate::user::UserId;
+use crate::app;
+use realworld_core::error::{RwError, RwResult};
+use realworld_core::UserId;
 
 use axum::http::HeaderValue;
 use axum::TypedHeader;
@@ -21,7 +21,10 @@ struct AuthUserClaims {
 }
 
 #[entrait(pub SignUserId)]
-fn sign_user_id(deps: &(impl GetCurrentTime + GetJwtSigningKey), user_id: UserId) -> String {
+fn sign_user_id(
+    deps: &(impl app::GetCurrentTime + app::GetJwtSigningKey),
+    user_id: UserId,
+) -> String {
     AuthUserClaims {
         user_id: user_id.0,
         exp: (deps.get_current_time() + DEFAULT_SESSION_LENGTH).unix_timestamp(),
@@ -36,21 +39,23 @@ pub struct Authenticated<T>(pub T);
 
 #[entrait(pub Authenticate)]
 fn authenticate(
-    deps: &(impl GetCurrentTime + GetJwtSigningKey),
+    deps: &(impl app::GetCurrentTime + app::GetJwtSigningKey),
     token: Token,
-) -> Result<Authenticated<UserId>, Error> {
+) -> RwResult<Authenticated<UserId>> {
     let token = token.token();
 
     let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
-        .map_err(|_| Error::Unauthorized)?;
+        .map_err(|_| RwError::Unauthorized)?;
 
     let hmac = deps.get_jwt_signing_key();
 
-    let jwt = jwt.verify_with_key(hmac).map_err(|_| Error::Unauthorized)?;
+    let jwt = jwt
+        .verify_with_key(hmac)
+        .map_err(|_| RwError::Unauthorized)?;
     let (_header, claims) = jwt.into();
 
     if claims.exp < deps.get_current_time().unix_timestamp() {
-        return Err(Error::Unauthorized);
+        return Err(RwError::Unauthorized);
     }
 
     Ok(Authenticated(UserId(claims.user_id)))
@@ -84,7 +89,7 @@ impl Credentials for Token {
 
 #[async_trait::async_trait]
 impl<B: Send> axum::extract::FromRequest<B> for Token {
-    type Rejection = Error;
+    type Rejection = RwError;
 
     async fn from_request(
         req: &mut axum::extract::RequestParts<B>,
@@ -92,7 +97,7 @@ impl<B: Send> axum::extract::FromRequest<B> for Token {
         let TypedHeader(Authorization(token)) =
             TypedHeader::<Authorization<Token>>::from_request(req)
                 .await
-                .map_err(|_| Error::Unauthorized)?;
+                .map_err(|_| RwError::Unauthorized)?;
 
         Ok(token)
     }

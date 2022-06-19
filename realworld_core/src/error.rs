@@ -6,10 +6,10 @@ use axum::Json;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-pub type AppResult<T, E = Error> = std::result::Result<T, E>;
+pub type RwResult<T, E = RwError> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum RwError {
     #[error("authentication required")]
     Unauthorized,
 
@@ -32,7 +32,7 @@ pub enum Error {
     Anyhow(#[from] anyhow::Error),
 }
 
-impl Error {
+impl RwError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
@@ -45,7 +45,7 @@ impl Error {
     }
 }
 
-impl axum::response::IntoResponse for Error {
+impl axum::response::IntoResponse for RwError {
     fn into_response(self) -> Response {
         match self {
             Self::Unauthorized => (

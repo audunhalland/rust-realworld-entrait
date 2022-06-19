@@ -1,0 +1,27 @@
+[package]
+name = "realworld-db"
+version = "0.1.0"
+authors = ["Audun Halland <audun.halldand@pm.me>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+realworld-core = { path = "../realworld_core" }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
+entrait = "0.3"
+implementation = "0.1"
+time = "0.3"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+rand = "0.8"
+sha2 = "0.10"
+unimock = "0.2"
+tracing = "0.1"
+
+[dev-dependencies]
+url = "2.0"
+dotenv = "0.15"
+assert_matches = "1"
+hex = "0.4"

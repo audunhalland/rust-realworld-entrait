@@ -1,6 +1,6 @@
 use crate::auth::{self, Token};
-use crate::error::AppResult;
 use crate::user;
+use realworld_core::error::RwResult;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
@@ -38,7 +38,7 @@ where
     async fn create(
         Extension(app): Extension<A>,
         Json(body): Json<UserBody<user::NewUser>>,
-    ) -> AppResult<JsonSignedUser> {
+    ) -> RwResult<JsonSignedUser> {
         Ok(Json(UserBody {
             user: app.create_user(body.user).await?,
         }))
@@ -47,13 +47,13 @@ where
     async fn login(
         Extension(app): Extension<A>,
         Json(body): Json<UserBody<user::LoginUser>>,
-    ) -> AppResult<JsonSignedUser> {
+    ) -> RwResult<JsonSignedUser> {
         Ok(Json(UserBody {
             user: app.login(body.user).await?,
         }))
     }
 
-    async fn current_user(Extension(app): Extension<A>, token: Token) -> AppResult<JsonSignedUser> {
+    async fn current_user(Extension(app): Extension<A>, token: Token) -> RwResult<JsonSignedUser> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.fetch_current_user(user_id).await?,
@@ -64,7 +64,7 @@ where
         Extension(app): Extension<A>,
         token: Token,
         Json(body): Json<UserBody<user::UserUpdate>>,
-    ) -> AppResult<JsonSignedUser> {
+    ) -> RwResult<JsonSignedUser> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.update_user(user_id, body.user).await?,
@@ -76,10 +76,11 @@ where
 mod tests {
     use super::*;
     use crate::auth::Authenticated;
-    use crate::db::user_db;
-    use crate::db::user_db::DbUser;
     use crate::test_util::*;
     use crate::user::*;
+    use realworld_core::UserId;
+    use realworld_db::user_db::{self, DbUser};
+
     use axum::body::Body;
     use axum::http::StatusCode;
     use unimock::*;

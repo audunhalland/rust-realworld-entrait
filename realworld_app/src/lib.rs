@@ -1,8 +1,6 @@
 mod api;
 mod app;
 mod auth;
-mod db;
-mod error;
 mod password;
 mod user;
 

@@ -1,12 +1,11 @@
+use crate::app::GetDb;
 use crate::auth;
-use crate::db::user_db;
-use crate::error::{AppResult, Error};
 use crate::password;
+use realworld_core::error::{RwError, RwResult};
+use realworld_core::UserId;
+use realworld_db::user_db::*;
 
 use entrait::unimock_test::*;
-
-#[derive(Clone, Debug)]
-pub struct UserId(pub uuid::Uuid);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
@@ -49,12 +48,13 @@ struct AuthUserClaims {
 
 #[entrait(pub CreateUser, async_trait = true)]
 async fn create_user(
-    deps: &(impl password::HashPassword + user_db::InsertUser + auth::SignUserId),
+    deps: &(impl password::HashPassword + GetDb + auth::SignUserId),
     new_user: NewUser,
-) -> AppResult<SignedUser> {
+) -> RwResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
 
     let db_user = deps
+        .get_db()
         .insert_user(new_user.username, new_user.email, password_hash)
         .await?;
 
@@ -63,13 +63,14 @@ async fn create_user(
 
 #[entrait(pub Login, async_trait = true)]
 async fn login(
-    deps: &(impl user_db::FindUserByEmail + password::VerifyPassword + auth::SignUserId),
+    deps: &(impl GetDb + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
-) -> AppResult<SignedUser> {
+) -> RwResult<SignedUser> {
     let (db_user, password_hash) = deps
+        .get_db()
         .find_user_by_email(login_user.email)
         .await?
-        .ok_or(Error::EmailDoesNotExist)?;
+        .ok_or(RwError::EmailDoesNotExist)?;
 
     deps.verify_password(login_user.password, password_hash)
         .await?;
@@ -79,23 +80,26 @@ async fn login(
 
 #[entrait(pub FetchCurrentUser, async_trait = true)]
 async fn fetch_current_user(
-    deps: &(impl user_db::FindUserById + auth::SignUserId),
+    deps: &(impl GetDb + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
-) -> AppResult<SignedUser> {
+) -> RwResult<SignedUser> {
     let (db_user, _) = deps
+        .get_db()
         .find_user_by_id(user_id.0)
         .await?
-        .ok_or(Error::CurrentUserDoesNotExist)?;
+        .ok_or(RwError::CurrentUserDoesNotExist)?;
 
     Ok(sign_db_user(deps, db_user))
 }
 
 #[entrait(pub UpdateUser, async_trait = true)]
 async fn update_user(
-    deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
+    deps: &(impl password::HashPassword + GetDb + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
     update: UserUpdate,
-) -> AppResult<SignedUser> {
+) -> RwResult<SignedUser> {
+    use realworld_db::user_db::UpdateUser;
+
     let password_hash = if let Some(password) = &update.password {
         Some(deps.hash_password(password.clone()).await?)
     } else {
@@ -104,11 +108,22 @@ async fn update_user(
 
     Ok(sign_db_user(
         deps,
-        deps.update_user(user_id.0, update, password_hash).await?,
+        deps.get_db()
+            .update_user(
+                user_id.0,
+                DbUserUpdate {
+                    username: update.username,
+                    email: update.email,
+                    password_hash,
+                    bio: update.bio,
+                    image: update.image,
+                },
+            )
+            .await?,
     ))
 }
 
-fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> SignedUser {
+fn sign_db_user(deps: &impl auth::SignUserId, db_user: DbUser) -> SignedUser {
     SignedUser {
         email: db_user.email,
         token: deps.sign_user_id(UserId(db_user.id)),
@@ -121,6 +136,9 @@ fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> Signe
 #[cfg(test)]
 mod tests {
     use super::*;
+    use realworld_core::PasswordHash;
+    use realworld_db::user_db;
+
     use unimock::*;
 
     fn test_token() -> String {
@@ -133,7 +151,7 @@ mod tests {
 
     pub fn mock_hash_password() -> unimock::Clause {
         password::hash_password::Fn::next_call(matching!(_))
-            .answers(|_| Ok(user_db::PasswordHash("h4sh".to_string())))
+            .answers(|_| Ok(PasswordHash("h4sh".to_string())))
             .once()
             .in_order()
     }
@@ -149,7 +167,7 @@ mod tests {
             mock_hash_password(),
             user_db::insert_user::Fn::next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
                 .answers(|(username, email, _)| {
-                    Ok(user_db::DbUser {
+                    Ok(DbUser {
                         id: test_user_id(),
                         username,
                         email,
@@ -180,14 +198,14 @@ mod tests {
             user_db::find_user_by_email::Fn::next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
-                        user_db::DbUser {
+                        DbUser {
                             id: test_user_id(),
                             username: "Name".into(),
                             email,
                             bio: "".to_string(),
                             image: None,
                         },
-                        user_db::PasswordHash("h4sh".into()),
+                        PasswordHash("h4sh".into()),
                     )))
                 })
                 .once()
