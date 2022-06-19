@@ -1,5 +1,7 @@
+pub mod app;
+pub mod config;
+
 mod api;
-mod app;
 mod auth;
 mod password;
 mod user;
@@ -10,10 +12,6 @@ mod test_util;
 use anyhow::Context;
 use implementation::Impl;
 use tower::ServiceBuilder;
-
-pub struct Config {
-    pub jwt_signing_key: hmac::Hmac<sha2::Sha384>,
-}
 
 pub async fn serve(app: app::App) -> anyhow::Result<()> {
     let router = api::api_router().layer(

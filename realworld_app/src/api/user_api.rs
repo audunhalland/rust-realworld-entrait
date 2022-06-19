@@ -131,8 +131,8 @@ mod tests {
     async fn integration_test_create_user() {
         let deps = spy([
             user_db::insert_user::Fn::stub(|each| {
-                each.call(matching!("username", "email", _)).answers(
-                    move |(username, email, _)| {
+                each.call(matching!("username", "email", _))
+                    .answers(|(username, email, _)| {
                         Ok(DbUser {
                             id: test_uuid(),
                             username,
@@ -140,8 +140,7 @@ mod tests {
                             bio: "bio".to_string(),
                             image: None,
                         })
-                    },
-                );
+                    });
             }),
             crate::app::test::mock_app_basics(),
         ]);

@@ -1,4 +1,4 @@
-use crate::Config;
+use crate::config::Config;
 use realworld_db::{Db, DbModule};
 
 use entrait::unimock_test::*;
@@ -37,7 +37,7 @@ impl GetDb for unimock::Unimock {
 
 #[entrait(pub GetJwtSigningKey)]
 fn get_jwt_signing_key(app: &App) -> &hmac::Hmac<sha2::Sha384> {
-    &app.config.jwt_signing_key
+    &app.config.jwt_signing_key.0
 }
 
 #[entrait(pub GetCurrentTime)]

@@ -1,5 +1,6 @@
 use realworld_core::error::RwError;
 
+use anyhow::Context;
 use entrait::unimock::*;
 use sqlx::error::DatabaseError;
 use sqlx::PgPool;
@@ -8,7 +9,21 @@ pub mod user_db;
 
 #[derive(Clone)]
 pub struct Db {
-    pg_pool: PgPool,
+    pub pg_pool: PgPool,
+}
+
+impl Db {
+    pub async fn init(url: &str) -> anyhow::Result<Self> {
+        let pg_pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(50)
+            .connect(url)
+            .await
+            .context("could not connect to database_url")?;
+
+        sqlx::migrate!("../migrations").run(&pg_pool).await?;
+
+        Ok(Db { pg_pool })
+    }
 }
 
 /// Export an entrait module

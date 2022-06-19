@@ -33,10 +33,12 @@ hmac = "0.12"
 sha2 = "0.10"
 unimock = "0.2"
 tracing = "0.1"
+dotenv = "0.15"
+env_logger = "0.9"
+clap = { version = "3", features = ["derive", "env"] }
 
 [dev-dependencies]
 url = "2.0"
-dotenv = "0.15"
 mime = "0.3"
 assert_matches = "1"
 hex = "0.4"
