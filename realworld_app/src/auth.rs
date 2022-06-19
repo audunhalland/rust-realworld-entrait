@@ -112,8 +112,8 @@ mod tests {
     fn should_sign_and_authenticate_token() {
         let user_id =
             UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap());
-        let unimock = mock(Some(crate::app::test::mock_app_basics()));
-        let token = sign_user_id(&unimock, user_id.clone());
+        let deps = mock(Some(crate::app::test::mock_app_basics()));
+        let token = sign_user_id(&deps, user_id.clone());
 
         assert_eq!(
             "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt",
@@ -121,7 +121,7 @@ mod tests {
         );
 
         let Authenticated(result_user_id) =
-            authenticate(&unimock, Token(format!("Token {token}"))).unwrap();
+            authenticate(&deps, Token(format!("Token {token}"))).unwrap();
 
         assert_eq!(user_id.0, result_user_id.0);
     }

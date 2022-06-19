@@ -6,26 +6,28 @@ use sqlx::PgPool;
 
 pub mod user_db;
 
+#[derive(Clone)]
 pub struct Db {
     pg_pool: PgPool,
 }
 
-pub trait DbApi:
+/// Export an entrait module
+pub trait DbModule:
     user_db::FindUserByEmail + user_db::FindUserById + user_db::InsertUser + user_db::UpdateUser
 {
 }
 
-impl DbApi for ::implementation::Impl<Db> {}
-impl DbApi for unimock::Unimock {}
+impl DbModule for ::implementation::Impl<Db> {}
+impl DbModule for unimock::Unimock {}
 
 #[entrait(pub GetPgPool)]
 fn get_pg_pool(db: &Db) -> &PgPool {
     &db.pg_pool
 }
 
-impl GetPgPool for sqlx::PgPool {
+impl GetPgPool for Db {
     fn get_pg_pool(&self) -> &PgPool {
-        self
+        &self.pg_pool
     }
 }
 
@@ -56,7 +58,7 @@ where
 }
 
 #[cfg(test)]
-async fn create_test_db() -> sqlx::PgPool {
+async fn create_test_db() -> implementation::Impl<Db> {
     use sha2::Digest;
     use sqlx::Connection;
 
@@ -89,7 +91,7 @@ async fn create_test_db() -> sqlx::PgPool {
         .await
         .expect("Failed to migrate");
 
-    pg_pool
+    implementation::Impl::new(Db { pg_pool })
 }
 
 #[cfg(test)]

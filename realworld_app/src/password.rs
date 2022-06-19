@@ -54,20 +54,22 @@ mod tests {
     #[tokio::test]
     async fn password_hashing_should_work() {
         let password = "v3rys3cr3t".to_string();
-        let hash = hash_password(&(), password.clone()).await.unwrap();
+        let app = implementation::Impl::new(());
+        let hash = app.hash_password(password.clone()).await.unwrap();
 
-        assert!(verify_password(&(), password.clone(), hash.clone())
+        assert!(app
+            .verify_password(password.clone(), hash.clone())
             .await
             .is_ok());
 
         assert_matches!(
-            verify_password(&(), "wrong_password".to_string(), hash).await,
+            app.verify_password("wrong_password".to_string(), hash)
+                .await,
             Err(RwError::Unauthorized)
         );
 
         assert_matches!(
-            verify_password(
-                &(),
+            app.verify_password(
                 password.clone(),
                 realworld_core::PasswordHash("invalid_hash".to_string())
             )

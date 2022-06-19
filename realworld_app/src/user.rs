@@ -163,7 +163,7 @@ mod tests {
             email: "name@email.com".to_string(),
             password: "password".to_string(),
         };
-        let mock = mock([
+        let deps = mock([
             mock_hash_password(),
             user_db::insert_user::Fn::next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
                 .answers(|(username, email, _)| {
@@ -183,7 +183,7 @@ mod tests {
                 .in_order(),
         ]);
 
-        let signed_user = create_user(&mock, new_user).await.unwrap();
+        let signed_user = create_user(&deps, new_user).await.unwrap();
 
         assert_eq!(signed_user.token, test_token());
     }
@@ -194,7 +194,7 @@ mod tests {
             email: "name@email.com".to_string(),
             password: "password".to_string(),
         };
-        let mock = mock([
+        let deps = mock([
             user_db::find_user_by_email::Fn::next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
@@ -220,7 +220,7 @@ mod tests {
                 .in_order(),
         ]);
 
-        let signed_user = login(&mock, login_user).await.unwrap();
+        let signed_user = login(&deps, login_user).await.unwrap();
 
         assert_eq!(signed_user.token, test_token());
     }

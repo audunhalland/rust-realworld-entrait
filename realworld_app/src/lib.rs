@@ -16,7 +16,7 @@ pub struct Config {
 }
 
 pub async fn serve(app: app::App) -> anyhow::Result<()> {
-    let app = api::api_router().layer(
+    let router = api::api_router().layer(
         ServiceBuilder::new()
             .layer(axum::extract::Extension(Impl::new(app)))
             // Enables logging. Use `RUST_LOG=tower_http=debug`
@@ -28,7 +28,7 @@ pub async fn serve(app: app::App) -> anyhow::Result<()> {
     // Note that any port below 1024 needs superuser privileges to bind on Linux,
     // so 80 isn't usually used as a default for that reason.
     axum::Server::bind(&"0.0.0.0:8080".parse()?)
-        .serve(app.into_make_service())
+        .serve(router.into_make_service())
         .await
         .context("error running HTTP server")
 }

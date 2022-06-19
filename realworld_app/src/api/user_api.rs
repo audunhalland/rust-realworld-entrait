@@ -81,9 +81,12 @@ mod tests {
     use realworld_core::UserId;
     use realworld_db::user_db::{self, DbUser};
 
-    use axum::body::Body;
     use axum::http::StatusCode;
     use unimock::*;
+
+    fn test_router(deps: Unimock) -> Router {
+        UserApi::<Unimock>::router().layer(Extension(deps.clone()))
+    }
 
     fn test_uuid() -> uuid::Uuid {
         uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap()
@@ -101,15 +104,15 @@ mod tests {
 
     #[tokio::test]
     async fn unit_test_create_user() {
-        let unimock = mock(Some(
+        let deps = mock(Some(
             create_user::Fn::next_call(matching!(_))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),
         ));
 
-        let (status, bytes) = request_json(
-            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
+        let (status, _) = request_json::<UserBody<user::SignedUser>>(
+            test_router(deps.clone()),
             axum::http::Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
@@ -118,15 +121,15 @@ mod tests {
                 },
             }),
         )
-        .await;
+        .await
+        .unwrap();
 
         assert_eq!(StatusCode::OK, status);
-        let _: UserBody<user::SignedUser> = serde_json::from_slice(&bytes).unwrap();
     }
 
     #[tokio::test]
     async fn integration_test_create_user() {
-        let unimock = spy([
+        let deps = spy([
             user_db::insert_user::Fn::stub(|each| {
                 each.call(matching!("username", "email", _)).answers(
                     move |(username, email, _)| {
@@ -143,8 +146,8 @@ mod tests {
             crate::app::test::mock_app_basics(),
         ]);
 
-        let (status, bytes) = request_json(
-            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
+        let (status, user_body) = request_json::<UserBody<user::SignedUser>>(
+            test_router(deps.clone()),
             axum::http::Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
@@ -153,11 +156,10 @@ mod tests {
                 },
             }),
         )
-        .await;
+        .await
+        .unwrap();
 
         assert_eq!(StatusCode::OK, status);
-        let user_body: UserBody<user::SignedUser> = serde_json::from_slice(&bytes).unwrap();
-
         assert_eq!("email", user_body.user.email);
         assert_eq!(
             "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt",
@@ -168,12 +170,10 @@ mod tests {
 
     #[tokio::test]
     async fn protected_endpoint_with_no_token_should_give_401() {
-        let unimock = mock(None);
-        let (status, _) = request_json(
-            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
-            axum::http::Request::get("/user")
-                .body(Body::empty())
-                .unwrap(),
+        let deps = mock(None);
+        let (status, _) = request(
+            test_router(deps.clone()),
+            axum::http::Request::get("/user").empty_body(),
         )
         .await;
         assert_eq!(StatusCode::UNAUTHORIZED, status);
@@ -181,7 +181,7 @@ mod tests {
 
     #[tokio::test]
     async fn current_user_should_work() {
-        let unimock = mock([
+        let deps = mock([
             auth::authenticate::Fn::next_call(matching!((token) if token.token() == "123"))
                 .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
                 .once()
@@ -192,16 +192,15 @@ mod tests {
                 .in_order(),
         ]);
 
-        let (status, bytes) = request_json(
-            UserApi::<Unimock>::router().layer(Extension(unimock.clone())),
+        let (status, _) = request_json::<UserBody<user::SignedUser>>(
+            test_router(deps.clone()),
             axum::http::Request::get("/user")
                 .header("Authorization", "Token 123")
-                .body(Body::empty())
-                .unwrap(),
+                .empty_body(),
         )
-        .await;
+        .await
+        .unwrap();
 
         assert_eq!(StatusCode::OK, status);
-        let _: UserBody<user::SignedUser> = serde_json::from_slice(&bytes).unwrap();
     }
 }
