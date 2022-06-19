@@ -1,5 +1,5 @@
 use crate::article;
-use crate::auth::Token;
+use crate::auth::{self, Token};
 use realworld_core::error::RwResult;
 
 use axum::extract::{Extension, Path};
@@ -11,7 +11,7 @@ struct ArticleBody<T = article::Article> {
     article: T,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 // Just trying this out to avoid the tautology of `ArticleBody<Article>`
 struct MultipleArticlesBody {
     articles: Vec<article::Article>,
@@ -39,7 +39,7 @@ pub struct ArticleApi<D>(std::marker::PhantomData<D>);
 
 impl<A> ArticleApi<A>
 where
-    A: Sized + Clone + Send + Sync + 'static,
+    A: auth::Authenticate + Sized + Clone + Send + Sync + 'static,
 {
     pub fn router() -> Router {
         Router::new()
@@ -63,7 +63,8 @@ where
         Extension(app): Extension<A>,
         token: Option<Token>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        todo!()
+        let user_id = token.map(|token| app.authenticate(token)).transpose()?;
+        Ok(Json(MultipleArticlesBody { articles: vec![] }))
     }
 
     async fn get_article(
@@ -109,5 +110,32 @@ where
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::*;
+
+    use axum::http::{Request, StatusCode};
+    use unimock::*;
+
+    fn test_router(deps: Unimock) -> Router {
+        ArticleApi::<Unimock>::router().layer(Extension(deps.clone()))
+    }
+
+    #[tokio::test]
+    async fn list_articles_should_accept_no_auth() {
+        let deps = mock(None);
+
+        let (status, _) = request_json::<MultipleArticlesBody>(
+            test_router(deps.clone()),
+            Request::get("/articles").empty_body(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(StatusCode::OK, status);
     }
 }

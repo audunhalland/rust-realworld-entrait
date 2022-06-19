@@ -2,7 +2,7 @@ use crate::profile;
 
 use time::OffsetDateTime;
 
-#[derive(serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Article {
     slug: String,

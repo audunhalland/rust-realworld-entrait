@@ -81,7 +81,7 @@ mod tests {
     use realworld_core::UserId;
     use realworld_db::user_db::{self, DbUser};
 
-    use axum::http::StatusCode;
+    use axum::http::{Request, StatusCode};
     use unimock::*;
 
     fn test_router(deps: Unimock) -> Router {
@@ -113,7 +113,7 @@ mod tests {
 
         let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
-            axum::http::Request::post("/users").with_json_body(UserBody {
+            Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
@@ -147,7 +147,7 @@ mod tests {
 
         let (status, user_body) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
-            axum::http::Request::post("/users").with_json_body(UserBody {
+            Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
@@ -172,7 +172,7 @@ mod tests {
         let deps = mock(None);
         let (status, _) = request(
             test_router(deps.clone()),
-            axum::http::Request::get("/user").empty_body(),
+            Request::get("/user").empty_body(),
         )
         .await;
         assert_eq!(StatusCode::UNAUTHORIZED, status);
@@ -193,7 +193,7 @@ mod tests {
 
         let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
-            axum::http::Request::get("/user")
+            Request::get("/user")
                 .header("Authorization", "Token 123")
                 .empty_body(),
         )
