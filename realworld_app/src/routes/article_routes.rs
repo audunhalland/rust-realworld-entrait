@@ -154,12 +154,11 @@ mod tests {
     #[tokio::test]
     async fn list_articles_should_accept_no_auth() {
         let deps = mock(Some(
-            article::list_articles::Fn::next_call(
-                matching!((None, q) if q == &article::ListArticlesQuery::default()),
-            )
-            .answers(|_| Ok(vec![]))
-            .once()
-            .in_order(),
+            article::list_articles::Fn
+                .next_call(matching!((None, q) if q == &article::ListArticlesQuery::default()))
+                .answers(|_| Ok(vec![]))
+                .once()
+                .in_order(),
         ));
 
         let (status, body) = request_json::<MultipleArticlesBody>(

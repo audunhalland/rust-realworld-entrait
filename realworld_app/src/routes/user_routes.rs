@@ -106,7 +106,8 @@ mod tests {
     #[tokio::test]
     async fn unit_test_create_user() {
         let deps = mock(Some(
-            create_user::Fn::next_call(matching!(_))
+            create_user::Fn
+                .next_call(matching!(_))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),
@@ -131,7 +132,7 @@ mod tests {
     #[tokio::test]
     async fn integration_test_create_user() {
         let deps = spy([
-            user_db::insert_user::Fn::stub(|each| {
+            user_db::insert_user::Fn.stub(|each| {
                 each.call(matching!("username", "email", _))
                     .answers(|(username, email, _)| {
                         Ok(DbUser {
@@ -182,11 +183,13 @@ mod tests {
     #[tokio::test]
     async fn current_user_should_work() {
         let deps = mock([
-            auth::authenticate::Fn::next_call(matching!((token) if token.token() == "123"))
+            auth::authenticate::Fn
+                .next_call(matching!((token) if token.token() == "123"))
                 .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
                 .once()
                 .in_order(),
-            fetch_current_user::Fn::next_call(matching!((user_id) if user_id.0.0 == test_uuid()))
+            fetch_current_user::Fn
+                .next_call(matching!((user_id) if user_id.0.0 == test_uuid()))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),

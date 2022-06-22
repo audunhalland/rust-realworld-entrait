@@ -53,7 +53,8 @@ pub mod test {
     pub fn mock_jwt_signing_key() -> unimock::Clause {
         use hmac::Mac;
 
-        get_jwt_signing_key::Fn::each_call(matching!())
+        get_jwt_signing_key::Fn
+            .each_call(matching!())
             .returns(
                 hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
                     .expect("HMAC-SHA-384 can accept any key length"),
@@ -62,7 +63,8 @@ pub mod test {
     }
 
     pub fn mock_current_time() -> unimock::Clause {
-        get_current_time::Fn::each_call(matching!())
+        get_current_time::Fn
+            .each_call(matching!())
             .returns(OffsetDateTime::from_unix_timestamp(0).unwrap())
             .in_any_order()
     }

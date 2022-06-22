@@ -150,7 +150,8 @@ mod tests {
     }
 
     pub fn mock_hash_password() -> unimock::Clause {
-        password::hash_password::Fn::next_call(matching!(_))
+        password::hash_password::Fn
+            .next_call(matching!(_))
             .answers(|_| Ok(PasswordHash("h4sh".to_string())))
             .once()
             .in_order()
@@ -165,7 +166,8 @@ mod tests {
         };
         let deps = mock([
             mock_hash_password(),
-            user_db::insert_user::Fn::next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
+            user_db::insert_user::Fn
+                .next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
                 .answers(|(username, email, _)| {
                     Ok(DbUser {
                         id: test_user_id(),
@@ -177,7 +179,8 @@ mod tests {
                 })
                 .once()
                 .in_order(),
-            auth::sign_user_id::Fn::next_call(matching!(_))
+            auth::sign_user_id::Fn
+                .next_call(matching!(_))
                 .returns(test_token())
                 .once()
                 .in_order(),
@@ -195,7 +198,8 @@ mod tests {
             password: "password".to_string(),
         };
         let deps = mock([
-            user_db::find_user_by_email::Fn::next_call(matching!("name@email.com"))
+            user_db::find_user_by_email::Fn
+                .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
                         DbUser {
@@ -210,11 +214,13 @@ mod tests {
                 })
                 .once()
                 .in_order(),
-            password::verify_password::Fn::next_call(matching!(_))
+            password::verify_password::Fn
+                .next_call(matching!(_))
                 .answers(|_| Ok(()))
                 .once()
                 .in_order(),
-            auth::sign_user_id::Fn::next_call(matching!(_))
+            auth::sign_user_id::Fn
+                .next_call(matching!(_))
                 .returns(test_token())
                 .once()
                 .in_order(),

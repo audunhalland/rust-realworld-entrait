@@ -33,7 +33,7 @@ serde_json = "1"
 # design pattern
 entrait = "0.3"
 implementation = "0.1"
-unimock = "0.2"
+unimock = "0.3"
 
 # error
 thiserror = "1"
