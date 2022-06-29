@@ -26,24 +26,9 @@ impl Db {
     }
 }
 
-/// Export an entrait module
-pub trait DbModule:
-    user_db::FindUserByEmail + user_db::FindUserById + user_db::InsertUser + user_db::UpdateUser
-{
-}
-
-impl DbModule for ::implementation::Impl<Db> {}
-impl DbModule for unimock::Unimock {}
-
 #[entrait(pub GetPgPool)]
 fn get_pg_pool(db: &Db) -> &PgPool {
     &db.pg_pool
-}
-
-impl GetPgPool for Db {
-    fn get_pg_pool(&self) -> &PgPool {
-        &self.pg_pool
-    }
 }
 
 trait DbResultExt<T> {

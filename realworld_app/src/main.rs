@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     // All trait implementations are for that type.
     let app = Impl::new(App {
         config: Arc::new(config),
-        db: Impl::new(db),
+        db,
     });
 
     let router = routes::api_router().layer(

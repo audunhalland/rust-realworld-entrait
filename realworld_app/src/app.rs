@@ -1,37 +1,22 @@
 use crate::config::Config;
-use realworld_db::{Db, DbModule};
 
 use entrait::unimock_test::*;
-use implementation::Impl;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
 #[derive(Clone)]
 pub struct App {
     pub config: Arc<Config>,
-    pub db: Impl<Db>,
+    pub db: realworld_db::Db,
 }
 
-// Import an "entrait module"
-pub trait GetDb {
-    type Target: DbModule + Send + Sync;
-
-    fn get_db(&self) -> &Self::Target;
-}
-
-impl GetDb for Impl<App> {
-    type Target = Impl<Db>;
-
-    fn get_db(&self) -> &Self::Target {
-        &self.db
-    }
-}
-
-impl GetDb for unimock::Unimock {
-    type Target = Self;
-
-    fn get_db(&self) -> &Self {
-        self
+// Implement the leaf dependency from realworld_db for the App.
+// `<Impl<T> as GetPgPool>::get_pg_pool` will delegate in its implementation
+// back to the 'native' implementation for `T`.
+// So here we make the circle complete:
+impl realworld_db::GetPgPool for App {
+    fn get_pg_pool(&self) -> &sqlx::PgPool {
+        self.db.get_pg_pool()
     }
 }
 

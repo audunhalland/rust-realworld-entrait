@@ -1,9 +1,8 @@
-use crate::app::GetDb;
 use crate::auth;
 use crate::password;
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
-use realworld_db::user_db::*;
+use realworld_db::user_db;
 
 use entrait::unimock_test::*;
 
@@ -48,13 +47,12 @@ struct AuthUserClaims {
 
 #[entrait(pub CreateUser, async_trait = true)]
 async fn create_user(
-    deps: &(impl password::HashPassword + GetDb + auth::SignUserId),
+    deps: &(impl password::HashPassword + user_db::InsertUser + auth::SignUserId),
     new_user: NewUser,
 ) -> RwResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
 
     let db_user = deps
-        .get_db()
         .insert_user(new_user.username, new_user.email, password_hash)
         .await?;
 
@@ -63,11 +61,10 @@ async fn create_user(
 
 #[entrait(pub Login, async_trait = true)]
 async fn login(
-    deps: &(impl GetDb + password::VerifyPassword + auth::SignUserId),
+    deps: &(impl user_db::FindUserByEmail + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> RwResult<SignedUser> {
     let (db_user, password_hash) = deps
-        .get_db()
         .find_user_by_email(login_user.email)
         .await?
         .ok_or(RwError::EmailDoesNotExist)?;
@@ -80,11 +77,10 @@ async fn login(
 
 #[entrait(pub FetchCurrentUser, async_trait = true)]
 async fn fetch_current_user(
-    deps: &(impl GetDb + auth::SignUserId),
+    deps: &(impl user_db::FindUserById + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
 ) -> RwResult<SignedUser> {
     let (db_user, _) = deps
-        .get_db()
         .find_user_by_id(user_id.0)
         .await?
         .ok_or(RwError::CurrentUserDoesNotExist)?;
@@ -94,12 +90,10 @@ async fn fetch_current_user(
 
 #[entrait(pub UpdateUser, async_trait = true)]
 async fn update_user(
-    deps: &(impl password::HashPassword + GetDb + auth::SignUserId),
+    deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
     update: UserUpdate,
 ) -> RwResult<SignedUser> {
-    use realworld_db::user_db::UpdateUser;
-
     let password_hash = if let Some(password) = &update.password {
         Some(deps.hash_password(password.clone()).await?)
     } else {
@@ -108,22 +102,21 @@ async fn update_user(
 
     Ok(sign_db_user(
         deps,
-        deps.get_db()
-            .update_user(
-                user_id.0,
-                DbUserUpdate {
-                    username: update.username,
-                    email: update.email,
-                    password_hash,
-                    bio: update.bio,
-                    image: update.image,
-                },
-            )
-            .await?,
+        deps.update_user(
+            user_id.0,
+            user_db::DbUserUpdate {
+                username: update.username,
+                email: update.email,
+                password_hash,
+                bio: update.bio,
+                image: update.image,
+            },
+        )
+        .await?,
     ))
 }
 
-fn sign_db_user(deps: &impl auth::SignUserId, db_user: DbUser) -> SignedUser {
+fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> SignedUser {
     SignedUser {
         email: db_user.email,
         token: deps.sign_user_id(UserId(db_user.id)),
@@ -169,7 +162,7 @@ mod tests {
             user_db::insert_user::Fn
                 .next_call(matching!((_, _, hash) if hash.0 == "h4sh"))
                 .answers(|(username, email, _)| {
-                    Ok(DbUser {
+                    Ok(user_db::DbUser {
                         id: test_user_id(),
                         username,
                         email,
@@ -202,7 +195,7 @@ mod tests {
                 .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
-                        DbUser {
+                        user_db::DbUser {
                             id: test_user_id(),
                             username: "Name".into(),
                             email,
