@@ -1,5 +1,5 @@
 use crate::DbResultExt;
-use crate::GetPgPool;
+use crate::GetDb;
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::{PasswordHash, UserId};
 
@@ -26,7 +26,7 @@ pub struct DbUserUpdate {
 
 #[entrait(pub InsertUser, async_trait=true)]
 async fn insert_user(
-    deps: &impl GetPgPool,
+    deps: &impl GetDb,
     username: String,
     email: String,
     password_hash: PasswordHash,
@@ -37,7 +37,7 @@ async fn insert_user(
         email,
         password_hash.0
     )
-    .fetch_one(deps.get_pg_pool())
+    .fetch_one(&deps.get_db().pg_pool)
     .await
     .on_constraint("user_username_key", |_| RwError::UsernameTaken)
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
@@ -53,14 +53,14 @@ async fn insert_user(
 
 #[entrait(pub FindUserById, async_trait = true)]
 async fn find_user_by_id(
-    deps: &impl GetPgPool,
+    deps: &impl GetDb,
     id: UserId,
 ) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE id = $1"#,
         id.0
     )
-    .fetch_optional(deps.get_pg_pool())
+    .fetch_optional(&deps.get_db().pg_pool)
     .await?;
 
     Ok(record.map(|record| {
@@ -79,14 +79,14 @@ async fn find_user_by_id(
 
 #[entrait(pub FindUserByEmail, async_trait = true)]
 async fn find_user_by_email(
-    deps: &impl GetPgPool,
+    deps: &impl GetDb,
     email: String,
 ) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
         email
     )
-    .fetch_optional(deps.get_pg_pool())
+    .fetch_optional(&deps.get_db().pg_pool)
     .await?;
 
     Ok(record.map(|record| {
@@ -104,7 +104,7 @@ async fn find_user_by_email(
 }
 
 #[entrait(pub UpdateUser, async_trait=true)]
-async fn update_user(deps: &impl GetPgPool, id: UserId, update: DbUserUpdate) -> RwResult<DbUser> {
+async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwResult<DbUser> {
     let user = sqlx::query!(
         // language=PostgreSQL
         r#"
@@ -124,7 +124,7 @@ async fn update_user(deps: &impl GetPgPool, id: UserId, update: DbUserUpdate) ->
         update.image,
         id.clone().0
     )
-    .fetch_one(deps.get_pg_pool())
+    .fetch_one(&deps.get_db().pg_pool)
     .await
     .on_constraint("user_username_key", |_| RwError::UsernameTaken)
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;

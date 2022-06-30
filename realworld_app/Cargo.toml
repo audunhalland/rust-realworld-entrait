@@ -20,7 +20,6 @@ async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 
 # web server
-sqlx = { version = "0.6", features = ["postgres"] }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.5", features = ["tower-log", "headers"] }
 hyper = { version = "0.14", features = ["full"] }

@@ -26,9 +26,9 @@ impl Db {
     }
 }
 
-#[entrait(pub GetPgPool)]
-fn get_pg_pool(db: &Db) -> &PgPool {
-    &db.pg_pool
+#[entrait(pub GetDb)]
+fn get_db(db: &Db) -> &Db {
+    db
 }
 
 trait DbResultExt<T> {

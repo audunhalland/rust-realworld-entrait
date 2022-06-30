@@ -11,12 +11,12 @@ pub struct App {
 }
 
 // Implement the leaf dependency from realworld_db for the App.
-// `<Impl<T> as GetPgPool>::get_pg_pool` will delegate in its implementation
+// `<Impl<T> as GetDb>::get_db` will delegate in its implementation
 // back to the 'native' implementation for `T`.
 // So here we make the circle complete:
-impl realworld_db::GetPgPool for App {
-    fn get_pg_pool(&self) -> &sqlx::PgPool {
-        self.db.get_pg_pool()
+impl realworld_db::GetDb for App {
+    fn get_db(&self) -> &realworld_db::Db {
+        &self.db
     }
 }
 
