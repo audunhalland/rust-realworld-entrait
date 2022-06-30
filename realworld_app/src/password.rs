@@ -6,8 +6,8 @@ use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash};
 use entrait::unimock_test::*;
 
-#[entrait(pub HashPassword, async_trait=true)]
-async fn hash_password<D>(_: &D, password: String) -> RwResult<realworld_core::PasswordHash> {
+#[entrait(pub HashPassword, no_deps, async_trait)]
+async fn hash_password(password: String) -> RwResult<realworld_core::PasswordHash> {
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
     Ok(
@@ -24,9 +24,8 @@ async fn hash_password<D>(_: &D, password: String) -> RwResult<realworld_core::P
     )
 }
 
-#[entrait(pub VerifyPassword, async_trait=true)]
-async fn verify_password<D>(
-    _: &D,
+#[entrait(pub VerifyPassword, no_deps, async_trait)]
+async fn verify_password(
     password: String,
     password_hash: realworld_core::PasswordHash,
 ) -> RwResult<()> {
