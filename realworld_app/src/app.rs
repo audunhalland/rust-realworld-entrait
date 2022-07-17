@@ -1,6 +1,6 @@
 use crate::config::Config;
 
-use entrait::unimock_test::*;
+use entrait::*;
 use std::sync::Arc;
 use time::OffsetDateTime;
 

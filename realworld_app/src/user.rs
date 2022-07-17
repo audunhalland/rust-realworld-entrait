@@ -4,7 +4,7 @@ use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
 use realworld_db::user_db;
 
-use entrait::unimock_test::*;
+use entrait::*;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
@@ -45,7 +45,7 @@ struct AuthUserClaims {
     exp: i64,
 }
 
-#[entrait(pub CreateUser, async_trait = true)]
+#[entrait(pub CreateUser)]
 async fn create_user(
     deps: &(impl password::HashPassword + user_db::InsertUser + auth::SignUserId),
     new_user: NewUser,
@@ -59,7 +59,7 @@ async fn create_user(
     Ok(sign_db_user(deps, db_user))
 }
 
-#[entrait(pub Login, async_trait = true)]
+#[entrait(pub Login)]
 async fn login(
     deps: &(impl user_db::FindUserByEmail + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
@@ -75,7 +75,7 @@ async fn login(
     Ok(sign_db_user(deps, db_user))
 }
 
-#[entrait(pub FetchCurrentUser, async_trait = true)]
+#[entrait(pub FetchCurrentUser)]
 async fn fetch_current_user(
     deps: &(impl user_db::FindUserById + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,
@@ -88,7 +88,7 @@ async fn fetch_current_user(
     Ok(sign_db_user(deps, db_user))
 }
 
-#[entrait(pub UpdateUser, async_trait = true)]
+#[entrait(pub UpdateUser)]
 async fn update_user(
     deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
     user_id: auth::Authenticated<UserId>,

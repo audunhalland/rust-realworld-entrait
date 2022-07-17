@@ -2,7 +2,7 @@ use realworld_app::{app::App, config::Config, routes};
 
 use anyhow::Context;
 use clap::Parser;
-use implementation::Impl;
+use entrait::Impl;
 use std::sync::Arc;
 use tower::ServiceBuilder;
 

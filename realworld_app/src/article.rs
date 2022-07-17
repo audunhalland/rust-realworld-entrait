@@ -3,7 +3,7 @@ use crate::profile;
 use realworld_core::error::RwResult;
 use realworld_core::UserId;
 
-use entrait::unimock_test::*;
+use entrait::*;
 use time::OffsetDateTime;
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -51,7 +51,7 @@ pub struct ListArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub ListArticles, async_trait = true)]
+#[entrait(pub ListArticles)]
 pub async fn list_articles<D>(
     _: &D,
     user_id: Option<auth::Authenticated<UserId>>,
@@ -60,7 +60,7 @@ pub async fn list_articles<D>(
     todo!()
 }
 
-#[entrait(pub GetArticle, async_trait = true)]
+#[entrait(pub GetArticle)]
 pub async fn get_article<D>(
     _: &D,
     user_id: Option<auth::Authenticated<UserId>>,
@@ -69,7 +69,7 @@ pub async fn get_article<D>(
     todo!()
 }
 
-#[entrait(pub CreateArticle, async_trait=true)]
+#[entrait(pub CreateArticle)]
 pub async fn create_article<D>(
     _: &D,
     user_id: auth::Authenticated<UserId>,
@@ -78,7 +78,7 @@ pub async fn create_article<D>(
     todo!()
 }
 
-#[entrait(pub UpdateArticle, async_trait = true)]
+#[entrait(pub UpdateArticle)]
 pub async fn update_article<D>(
     _: &D,
     user_id: auth::Authenticated<UserId>,
@@ -88,7 +88,7 @@ pub async fn update_article<D>(
     todo!()
 }
 
-#[entrait(pub DeleteArticle, async_trait = true)]
+#[entrait(pub DeleteArticle)]
 pub async fn delete_article<D>(
     _: &D,
     user_id: auth::Authenticated<UserId>,
@@ -97,7 +97,7 @@ pub async fn delete_article<D>(
     todo!()
 }
 
-#[entrait(pub FavoriteArticle, async_trait = true)]
+#[entrait(pub FavoriteArticle)]
 pub async fn favorite_article<D>(
     _: &D,
     user_id: auth::Authenticated<UserId>,
@@ -106,7 +106,7 @@ pub async fn favorite_article<D>(
     todo!()
 }
 
-#[entrait(pub UnfavoriteArticle, async_trait = true)]
+#[entrait(pub UnfavoriteArticle)]
 pub async fn unfavorite_article<D>(
     _: &D,
     user_id: auth::Authenticated<UserId>,

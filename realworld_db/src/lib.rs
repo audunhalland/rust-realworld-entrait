@@ -1,7 +1,10 @@
+#![cfg_attr(feature = "use-associated-future", feature(generic_associated_types))]
+#![cfg_attr(feature = "use-associated-future", feature(type_alias_impl_trait))]
+
 use realworld_core::error::RwError;
 
 use anyhow::Context;
-use entrait::unimock::*;
+use entrait::entrait_export as entrait;
 use sqlx::error::DatabaseError;
 use sqlx::PgPool;
 
@@ -58,7 +61,7 @@ where
 }
 
 #[cfg(test)]
-async fn create_test_db() -> implementation::Impl<Db> {
+async fn create_test_db() -> entrait::Impl<Db> {
     use sha2::Digest;
     use sqlx::Connection;
 
@@ -91,7 +94,7 @@ async fn create_test_db() -> implementation::Impl<Db> {
         .await
         .expect("Failed to migrate");
 
-    implementation::Impl::new(Db { pg_pool })
+    entrait::Impl::new(Db { pg_pool })
 }
 
 #[cfg(test)]

@@ -4,9 +4,9 @@ use realworld_core::error::{RwError, RwResult};
 use anyhow::Context;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash};
-use entrait::unimock_test::*;
+use entrait::*;
 
-#[entrait(pub HashPassword, no_deps, async_trait)]
+#[entrait(pub HashPassword, no_deps)]
 async fn hash_password(password: String) -> RwResult<realworld_core::PasswordHash> {
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
@@ -24,7 +24,7 @@ async fn hash_password(password: String) -> RwResult<realworld_core::PasswordHas
     )
 }
 
-#[entrait(pub VerifyPassword, no_deps, async_trait)]
+#[entrait(pub VerifyPassword, no_deps)]
 async fn verify_password(
     password: String,
     password_hash: realworld_core::PasswordHash,
@@ -53,7 +53,7 @@ mod tests {
     #[tokio::test]
     async fn password_hashing_should_work() {
         let password = "v3rys3cr3t".to_string();
-        let app = implementation::Impl::new(());
+        let app = Impl::new(());
         let hash = app.hash_password(password.clone()).await.unwrap();
 
         assert!(app

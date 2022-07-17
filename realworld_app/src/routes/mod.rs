@@ -4,7 +4,7 @@ mod user_routes;
 use crate::app::App;
 
 use axum::routing::Router;
-use implementation::Impl;
+use entrait::Impl;
 
 /// Axum API router for the real app.
 pub fn api_router() -> axum::Router {

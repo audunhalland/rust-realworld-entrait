@@ -6,6 +6,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["use-async-trait"]
+use-async-trait = ["entrait/use-async-trait"]
+use-associated-future = ["entrait/use-associated-future", "realworld-db/use-associated-future"]
+
 [dependencies]
 # realworld
 realworld-core = { path = "../realworld_core" }
@@ -31,8 +36,7 @@ tower-http = { version = "0.3", features = ["trace"] }
 serde_json = "1"
 
 # design pattern
-entrait = "0.3"
-implementation = "0.1"
+entrait = { version = "0.3", path = "../../entrait", features = ["unimock"] }
 unimock = "0.3"
 
 # error

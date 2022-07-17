@@ -3,7 +3,7 @@ use crate::GetDb;
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::{PasswordHash, UserId};
 
-use entrait::unimock::*;
+use entrait::entrait_export as entrait;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -24,7 +24,7 @@ pub struct DbUserUpdate {
     pub image: Option<String>,
 }
 
-#[entrait(pub InsertUser, async_trait=true)]
+#[entrait(pub InsertUser)]
 async fn insert_user(
     deps: &impl GetDb,
     username: String,
@@ -51,7 +51,7 @@ async fn insert_user(
     })
 }
 
-#[entrait(pub FindUserById, async_trait = true)]
+#[entrait(pub FindUserById)]
 async fn find_user_by_id(
     deps: &impl GetDb,
     id: UserId,
@@ -77,7 +77,7 @@ async fn find_user_by_id(
     }))
 }
 
-#[entrait(pub FindUserByEmail, async_trait = true)]
+#[entrait(pub FindUserByEmail)]
 async fn find_user_by_email(
     deps: &impl GetDb,
     email: String,
@@ -103,7 +103,7 @@ async fn find_user_by_email(
     }))
 }
 
-#[entrait(pub UpdateUser, async_trait=true)]
+#[entrait(pub UpdateUser)]
 async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwResult<DbUser> {
     let user = sqlx::query!(
         // language=PostgreSQL
