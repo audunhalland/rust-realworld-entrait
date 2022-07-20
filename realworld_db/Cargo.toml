@@ -7,13 +7,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = []
 use-associated-future = []
 
 [dependencies]
 realworld-core = { path = "../realworld_core" }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-entrait = { version = "0.3", path = "../../entrait" }
+entrait = "0.4.0-beta.1"
 time = "0.3"
 async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }

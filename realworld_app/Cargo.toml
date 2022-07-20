@@ -36,7 +36,7 @@ tower-http = { version = "0.3", features = ["trace"] }
 serde_json = "1"
 
 # design pattern
-entrait = { version = "0.3", path = "../../entrait", features = ["unimock"] }
+entrait = { version = "0.4.0-beta.1", features = ["unimock"] }
 unimock = "0.3"
 
 # error
