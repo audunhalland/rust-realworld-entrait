@@ -1,10 +1,11 @@
-use crate::auth;
-use crate::password;
+pub mod auth;
+pub mod password;
+
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
 use realworld_db::user_db;
 
-use entrait::*;
+use entrait::entrait_export as entrait;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
@@ -36,13 +37,6 @@ pub struct UserUpdate {
     pub password: Option<String>,
     pub bio: Option<String>,
     pub image: Option<String>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct AuthUserClaims {
-    user_id: uuid::Uuid,
-    /// Standard JWT `exp` claim.
-    exp: i64,
 }
 
 #[entrait(pub CreateUser)]

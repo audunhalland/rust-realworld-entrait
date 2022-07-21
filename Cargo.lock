@@ -1137,9 +1137,7 @@ name = "realworld-app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "argon2",
  "assert_matches",
- "async-trait",
  "axum",
  "bytes",
  "clap",
@@ -1151,15 +1149,13 @@ dependencies = [
  "hmac",
  "http",
  "hyper",
- "jwt",
  "mime",
- "rand",
  "realworld-core",
  "realworld-db",
+ "realworld-user",
  "serde",
  "serde_json",
  "sha2",
- "thiserror",
  "time",
  "tokio",
  "tower",
@@ -1184,6 +1180,7 @@ dependencies = [
  "thiserror",
  "time",
  "tracing",
+ "unimock",
  "uuid",
 ]
 
@@ -1193,17 +1190,40 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_matches",
- "async-trait",
  "dotenv",
  "entrait",
  "hex",
- "rand",
  "realworld-core",
  "sha2",
  "sqlx",
  "time",
  "tokio",
- "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "realworld-user"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "assert_matches",
+ "async-trait",
+ "axum",
+ "dotenv",
+ "entrait",
+ "headers",
+ "hex",
+ "hmac",
+ "jwt",
+ "rand",
+ "realworld-core",
+ "realworld-db",
+ "serde",
+ "sha2",
+ "time",
+ "tokio",
  "unimock",
  "url",
  "uuid",

@@ -1,6 +1,6 @@
 use crate::article;
-use crate::auth::{self, Token};
 use realworld_core::error::RwResult;
+use realworld_user::auth::{self, Token};
 
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{get, post};

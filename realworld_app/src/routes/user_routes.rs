@@ -1,6 +1,5 @@
-use crate::auth::{self, Token};
-use crate::user;
 use realworld_core::error::RwResult;
+use realworld_user::auth::Token;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
@@ -15,11 +14,11 @@ pub struct UserRoutes<A>(std::marker::PhantomData<A>);
 
 impl<A> UserRoutes<A>
 where
-    A: user::CreateUser
-        + user::Login
-        + user::FetchCurrentUser
-        + user::UpdateUser
-        + auth::Authenticate
+    A: realworld_user::CreateUser
+        + realworld_user::Login
+        + realworld_user::FetchCurrentUser
+        + realworld_user::UpdateUser
+        + realworld_user::auth::Authenticate
         + Sized
         + Clone
         + Send
@@ -35,8 +34,8 @@ where
 
     async fn create(
         Extension(app): Extension<A>,
-        Json(body): Json<UserBody<user::NewUser>>,
-    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
+        Json(body): Json<UserBody<realworld_user::NewUser>>,
+    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         Ok(Json(UserBody {
             user: app.create_user(body.user).await?,
         }))
@@ -44,8 +43,8 @@ where
 
     async fn login(
         Extension(app): Extension<A>,
-        Json(body): Json<UserBody<user::LoginUser>>,
-    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
+        Json(body): Json<UserBody<realworld_user::LoginUser>>,
+    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         Ok(Json(UserBody {
             user: app.login(body.user).await?,
         }))
@@ -54,7 +53,7 @@ where
     async fn current_user(
         Extension(app): Extension<A>,
         token: Token,
-    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
+    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.fetch_current_user(user_id).await?,
@@ -64,8 +63,8 @@ where
     async fn update_user(
         Extension(app): Extension<A>,
         token: Token,
-        Json(body): Json<UserBody<user::UserUpdate>>,
-    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
+        Json(body): Json<UserBody<realworld_user::UserUpdate>>,
+    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(UserBody {
             user: app.update_user(user_id, body.user).await?,
@@ -76,11 +75,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::Authenticated;
     use crate::test_util::*;
-    use crate::user::*;
     use realworld_core::UserId;
     use realworld_db::user_db::{self, DbUser};
+    use realworld_user::auth::Authenticated;
+    use realworld_user::*;
 
     use axum::http::{Request, StatusCode};
     use unimock::*;
@@ -113,10 +112,10 @@ mod tests {
                 .in_order(),
         ));
 
-        let (status, _) = request_json::<UserBody<user::SignedUser>>(
+        let (status, _) = request_json::<UserBody<realworld_user::SignedUser>>(
             test_router(deps.clone()),
             Request::post("/users").with_json_body(UserBody {
-                user: user::NewUser {
+                user: realworld_user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
                     password: "password".to_string(),
@@ -144,13 +143,13 @@ mod tests {
                         })
                     });
             }),
-            crate::app::test::mock_system_and_config(),
+            realworld_core::test::mock_system_and_config(),
         ]);
 
-        let (status, user_body) = request_json::<UserBody<user::SignedUser>>(
+        let (status, user_body) = request_json::<UserBody<realworld_user::SignedUser>>(
             test_router(deps.clone()),
             Request::post("/users").with_json_body(UserBody {
-                user: user::NewUser {
+                user: realworld_user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
                     password: "password".to_string(),
@@ -195,7 +194,7 @@ mod tests {
                 .in_order(),
         ]);
 
-        let (status, _) = request_json::<UserBody<user::SignedUser>>(
+        let (status, _) = request_json::<UserBody<realworld_user::SignedUser>>(
             test_router(deps.clone()),
             Request::get("/user")
                 .header("Authorization", "Token 123")

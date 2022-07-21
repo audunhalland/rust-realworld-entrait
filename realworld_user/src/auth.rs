@@ -3,7 +3,7 @@ use realworld_core::{GetConfig, System, UserId};
 
 use axum::http::HeaderValue;
 use axum::TypedHeader;
-use entrait::*;
+use entrait::entrait_export as entrait;
 use headers::authorization::Credentials;
 use headers::Authorization;
 use jwt::SignWithKey;
@@ -105,7 +105,7 @@ mod tests {
     fn should_sign_and_authenticate_token() {
         let user_id =
             UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap());
-        let deps = mock(Some(crate::app::test::mock_system_and_config()));
+        let deps = mock(Some(realworld_core::test::mock_system_and_config()));
         let token = sign_user_id(&deps, user_id.clone());
 
         assert_eq!(

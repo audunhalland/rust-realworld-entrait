@@ -15,45 +15,41 @@ use-associated-future = ["entrait/use-associated-future", "realworld-db/use-asso
 # realworld
 realworld-core = { path = "../realworld_core" }
 realworld-db = { path = "../realworld_db" }
+realworld-user = { path = "../realworld_user" }
 
 # core
 clap = { version = "3", features = ["derive", "env"] }
 dotenv = "0.15"
 tracing = "0.1"
 env_logger = "0.9"
-async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 
 # web server
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.5", features = ["tower-log", "headers"] }
 hyper = { version = "0.14", features = ["full"] }
-http = "0.2"
 headers = "0.3"
-bytes = "1"
 tower = "0.4"
 tower-http = { version = "0.3", features = ["trace"] }
 serde_json = "1"
 
 # design pattern
 entrait = { version = "0.4.0-beta.1", features = ["unimock"] }
-unimock = "0.3"
 
 # error
-thiserror = "1"
 anyhow = "1"
 
 # data types
 time = { version = "0.3", features = ["serde"] }
 uuid = { version = "1", features = ["serde", "v4"] }
-argon2 = "0.4"
-rand = "0.8"
 hmac = "0.12"
 sha2 = "0.10"
-jwt = "0.16"
 
 [dev-dependencies]
 url = "2.0"
 mime = "0.3"
 assert_matches = "1"
 hex = "0.4"
+unimock = "0.3"
+http = "0.2"
+bytes = "1"

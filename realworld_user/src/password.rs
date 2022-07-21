@@ -4,7 +4,7 @@ use realworld_core::error::{RwError, RwResult};
 use anyhow::Context;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash};
-use entrait::*;
+use entrait::entrait_export as entrait;
 
 #[entrait(pub HashPassword, no_deps)]
 async fn hash_password(password: String) -> RwResult<realworld_core::PasswordHash> {
@@ -53,7 +53,7 @@ mod tests {
     #[tokio::test]
     async fn password_hashing_should_work() {
         let password = "v3rys3cr3t".to_string();
-        let app = Impl::new(());
+        let app = entrait::Impl::new(());
         let hash = app.hash_password(password.clone()).await.unwrap();
 
         assert!(app

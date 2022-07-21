@@ -1,7 +1,7 @@
-use crate::auth;
 use crate::profile;
 use realworld_core::error::RwResult;
 use realworld_core::UserId;
+use realworld_user::auth;
 
 use entrait::*;
 use time::OffsetDateTime;
