@@ -144,7 +144,7 @@ mod tests {
                         })
                     });
             }),
-            crate::app::test::mock_app_basics(),
+            crate::app::test::mock_system_and_config(),
         ]);
 
         let (status, user_body) = request_json::<UserBody<user::SignedUser>>(

@@ -1,6 +1,5 @@
 use crate::config::Config;
 
-use entrait::*;
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -20,14 +19,16 @@ impl realworld_db::GetDb for App {
     }
 }
 
-#[entrait(pub GetJwtSigningKey)]
-fn get_jwt_signing_key(app: &App) -> &hmac::Hmac<sha2::Sha384> {
-    &app.config.jwt_signing_key.0
+impl realworld_core::System for App {
+    fn get_current_time(&self) -> time::OffsetDateTime {
+        OffsetDateTime::now_utc()
+    }
 }
 
-#[entrait(pub GetCurrentTime)]
-fn get_current_time(_: &App) -> OffsetDateTime {
-    OffsetDateTime::now_utc()
+impl realworld_core::GetConfig for App {
+    fn get_jwt_signing_key(&self) -> &hmac::Hmac<sha2::Sha384> {
+        &self.config.jwt_signing_key.0
+    }
 }
 
 #[cfg(test)]
@@ -38,7 +39,7 @@ pub mod test {
     pub fn mock_jwt_signing_key() -> unimock::Clause {
         use hmac::Mac;
 
-        get_jwt_signing_key::Fn
+        realworld_core::GetConfig__get_jwt_signing_key
             .each_call(matching!())
             .returns(
                 hmac::Hmac::<sha2::Sha384>::new_from_slice("foobar".as_bytes())
@@ -48,13 +49,13 @@ pub mod test {
     }
 
     pub fn mock_current_time() -> unimock::Clause {
-        get_current_time::Fn
+        realworld_core::System__get_current_time
             .each_call(matching!())
             .returns(OffsetDateTime::from_unix_timestamp(0).unwrap())
             .in_any_order()
     }
 
-    pub fn mock_app_basics() -> unimock::Clause {
+    pub fn mock_system_and_config() -> unimock::Clause {
         [mock_jwt_signing_key(), mock_current_time()].into()
     }
 }

@@ -1,6 +1,5 @@
-use crate::app;
 use realworld_core::error::{RwError, RwResult};
-use realworld_core::UserId;
+use realworld_core::{GetConfig, System, UserId};
 
 use axum::http::HeaderValue;
 use axum::TypedHeader;
@@ -21,10 +20,7 @@ struct AuthUserClaims {
 }
 
 #[entrait(pub SignUserId)]
-fn sign_user_id(
-    deps: &(impl app::GetCurrentTime + app::GetJwtSigningKey),
-    user_id: UserId,
-) -> String {
+fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
     AuthUserClaims {
         user_id: user_id.0,
         exp: (deps.get_current_time() + DEFAULT_SESSION_LENGTH).unix_timestamp(),
@@ -38,10 +34,7 @@ fn sign_user_id(
 pub struct Authenticated<T>(pub T);
 
 #[entrait(pub Authenticate)]
-fn authenticate(
-    deps: &(impl app::GetCurrentTime + app::GetJwtSigningKey),
-    token: Token,
-) -> RwResult<Authenticated<UserId>> {
+fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<Authenticated<UserId>> {
     let token = token.token();
 
     let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
@@ -112,7 +105,7 @@ mod tests {
     fn should_sign_and_authenticate_token() {
         let user_id =
             UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap());
-        let deps = mock(Some(crate::app::test::mock_app_basics()));
+        let deps = mock(Some(crate::app::test::mock_system_and_config()));
         let token = sign_user_id(&deps, user_id.clone());
 
         assert_eq!(

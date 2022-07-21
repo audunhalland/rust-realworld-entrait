@@ -1176,9 +1176,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "entrait",
+ "hmac",
  "serde",
+ "sha2",
  "sqlx",
  "thiserror",
+ "time",
  "tracing",
  "uuid",
 ]
