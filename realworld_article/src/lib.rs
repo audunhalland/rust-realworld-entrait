@@ -1,9 +1,10 @@
-use crate::profile;
+mod profile;
+
 use realworld_core::error::RwResult;
 use realworld_core::UserId;
 use realworld_user::auth;
 
-use entrait::*;
+use entrait::entrait_export as entrait;
 use time::OffsetDateTime;
 
 #[derive(serde::Deserialize, serde::Serialize)]

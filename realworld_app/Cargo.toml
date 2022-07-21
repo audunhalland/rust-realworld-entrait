@@ -16,6 +16,7 @@ use-associated-future = ["entrait/use-associated-future", "realworld-db/use-asso
 realworld-core = { path = "../realworld_core" }
 realworld-db = { path = "../realworld_db" }
 realworld-user = { path = "../realworld_user" }
+realworld-article = { path = "../realworld_article" }
 
 # core
 clap = { version = "3", features = ["derive", "env"] }

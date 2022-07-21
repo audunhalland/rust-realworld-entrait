@@ -5,8 +5,5 @@ pub mod app;
 pub mod config;
 pub mod routes;
 
-mod article;
-mod profile;
-
 #[cfg(test)]
 mod test_util;

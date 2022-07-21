@@ -1150,6 +1150,7 @@ dependencies = [
  "http",
  "hyper",
  "mime",
+ "realworld-article",
  "realworld-core",
  "realworld-db",
  "realworld-user",
@@ -1164,6 +1165,18 @@ dependencies = [
  "unimock",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "realworld-article"
+version = "0.1.0"
+dependencies = [
+ "entrait",
+ "realworld-core",
+ "realworld-db",
+ "realworld-user",
+ "serde",
+ "time",
 ]
 
 [[package]]
