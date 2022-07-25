@@ -32,7 +32,7 @@ async fn insert_user(
     password_hash: PasswordHash,
 ) -> RwResult<DbUser> {
     let id = sqlx::query_scalar!(
-        r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id"#,
+        r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
         username,
         email,
         password_hash.0
@@ -57,7 +57,7 @@ async fn find_user_by_id(
     id: UserId,
 ) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
-        r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE id = $1"#,
+        r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE user_id = $1"#,
         id.0
     )
     .fetch_optional(&deps.get_db().pg_pool)
@@ -66,7 +66,7 @@ async fn find_user_by_id(
     Ok(record.map(|record| {
         (
             DbUser {
-                id: record.id,
+                id: record.user_id,
                 username: record.username,
                 email: record.email,
                 bio: record.bio,
@@ -83,7 +83,7 @@ async fn find_user_by_email(
     email: String,
 ) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
-        r#"SELECT id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
+        r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
         email
     )
     .fetch_optional(&deps.get_db().pg_pool)
@@ -92,7 +92,7 @@ async fn find_user_by_email(
     Ok(record.map(|record| {
         (
             DbUser {
-                id: record.id,
+                id: record.user_id,
                 username: record.username,
                 email: record.email,
                 bio: record.bio,
@@ -114,7 +114,7 @@ async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwR
             password_hash = COALESCE($3, password_hash),
             bio = COALESCE($4, bio),
             image = COALESCE($5, image)
-        WHERE id = $6
+        WHERE user_id = $6
         RETURNING email, username, bio, image
         "#,
         update.email,
