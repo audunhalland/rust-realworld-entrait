@@ -348,9 +348,9 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 
 [[package]]
 name = "entrait"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c39fe38bb1a9ce12f7c9cbd67acd84a4ff1e1736dfc845363ac0f9b00f0192bd"
+checksum = "2237bfbb6722c079205c515404043f6bc3e8c2a7c573b3bb6a7254a4c2ec8f6b"
 dependencies = [
  "async-trait",
  "entrait_macros",
@@ -360,9 +360,9 @@ dependencies = [
 
 [[package]]
 name = "entrait_macros"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e21cdc9f9136db12949645713c3a5871cc9150e18453dcfa8b4c24523b390083"
+checksum = "00bb6bff5a930b5c43056b94a69435b3abbddb68b7caa19ca0ae896e34a3654a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1650,9 +1650,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.20.0"
+version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57aec3cfa4c296db7255446efb4928a6be304b431a806216105542a67b6ca82e"
+checksum = "7a8325f63a7d4774dd041e363b2409ed1c5cbbd0f867795e661df066b2b0a581"
 dependencies = [
  "autocfg",
  "bytes",
