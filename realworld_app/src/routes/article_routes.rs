@@ -155,9 +155,9 @@ mod tests {
     async fn list_articles_should_accept_no_auth() {
         let deps = mock(Some(
             realworld_article::list_articles::Fn
-                .next_call(
-                    matching!((None, q) if q == &realworld_article::ListArticlesQuery::default()),
-                )
+                .next_call(matching! {
+                    (None, query) if query == &realworld_article::ListArticlesQuery::default()
+                })
                 .answers(|_| Ok(vec![]))
                 .once()
                 .in_order(),
