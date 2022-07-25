@@ -14,6 +14,6 @@ use-associated-future = []
 realworld-user = { path = "../realworld_user" }
 realworld-core = { path = "../realworld_core" }
 realworld-db = { path = "../realworld_db" }
-entrait = "0.4.0-beta.1"
+entrait = "0.4"
 serde = { version = "1", features = ["derive"] }
 time = "0.3"

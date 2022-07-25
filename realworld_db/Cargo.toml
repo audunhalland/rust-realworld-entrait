@@ -14,7 +14,7 @@ use-associated-future = []
 realworld-core = { path = "../realworld_core" }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-entrait = "0.4.0-beta.1"
+entrait = "0.4"
 time = "0.3"
 uuid = "1"
 sha2 = "0.10"
