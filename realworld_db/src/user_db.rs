@@ -54,11 +54,11 @@ async fn insert_user(
 #[entrait(pub FindUserById)]
 async fn find_user_by_id(
     deps: &impl GetDb,
-    id: UserId,
+    UserId(user_id): UserId,
 ) -> RwResult<Option<(DbUser, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE user_id = $1"#,
-        id.0
+        user_id
     )
     .fetch_optional(&deps.get_db().pg_pool)
     .await?;
@@ -104,7 +104,11 @@ async fn find_user_by_email(
 }
 
 #[entrait(pub UpdateUser)]
-async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwResult<DbUser> {
+async fn update_user(
+    deps: &impl GetDb,
+    UserId(user_id): UserId,
+    update: DbUserUpdate,
+) -> RwResult<DbUser> {
     let user = sqlx::query!(
         // language=PostgreSQL
         r#"
@@ -122,7 +126,7 @@ async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwR
         update.password_hash.map(|hash| hash.0),
         update.bio,
         update.image,
-        id.clone().0
+        user_id.clone()
     )
     .fetch_one(&deps.get_db().pg_pool)
     .await
@@ -130,7 +134,7 @@ async fn update_user(deps: &impl GetDb, id: UserId, update: DbUserUpdate) -> RwR
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
     Ok(DbUser {
-        id: id.0,
+        id: user_id,
         username: user.username,
         email: user.email,
         bio: user.bio,

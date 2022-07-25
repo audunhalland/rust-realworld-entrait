@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod password;
 
+use auth::Authenticated;
+
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
 use realworld_db::user_db;
@@ -72,10 +74,10 @@ async fn login(
 #[entrait(pub FetchCurrentUser)]
 async fn fetch_current_user(
     deps: &(impl user_db::FindUserById + auth::SignUserId),
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
 ) -> RwResult<SignedUser> {
     let (db_user, _) = deps
-        .find_user_by_id(user_id.0)
+        .find_user_by_id(user_id)
         .await?
         .ok_or(RwError::CurrentUserDoesNotExist)?;
 
@@ -85,7 +87,7 @@ async fn fetch_current_user(
 #[entrait(pub UpdateUser)]
 async fn update_user(
     deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
     update: UserUpdate,
 ) -> RwResult<SignedUser> {
     let password_hash = if let Some(password) = &update.password {
@@ -97,7 +99,7 @@ async fn update_user(
     Ok(sign_db_user(
         deps,
         deps.update_user(
-            user_id.0,
+            user_id,
             user_db::DbUserUpdate {
                 username: update.username,
                 email: update.email,
