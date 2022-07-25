@@ -7,7 +7,7 @@ use entrait::entrait_export as entrait;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DbUser {
+pub struct User {
     pub id: Uuid,
     pub username: String,
     pub email: String,
@@ -16,7 +16,7 @@ pub struct DbUser {
 }
 
 #[derive(Clone, Default)]
-pub struct DbUserUpdate {
+pub struct UserUpdate {
     pub email: Option<String>,
     pub username: Option<String>,
     pub password_hash: Option<PasswordHash>,
@@ -30,7 +30,7 @@ async fn insert_user(
     username: String,
     email: String,
     password_hash: PasswordHash,
-) -> RwResult<DbUser> {
+) -> RwResult<User> {
     let id = sqlx::query_scalar!(
         r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
         username,
@@ -42,7 +42,7 @@ async fn insert_user(
     .on_constraint("user_username_key", |_| RwError::UsernameTaken)
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
-    Ok(DbUser {
+    Ok(User {
         id,
         username,
         email,
@@ -55,7 +55,7 @@ async fn insert_user(
 async fn find_user_by_id(
     deps: &impl GetDb,
     UserId(user_id): UserId,
-) -> RwResult<Option<(DbUser, PasswordHash)>> {
+) -> RwResult<Option<(User, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE user_id = $1"#,
         user_id
@@ -65,7 +65,7 @@ async fn find_user_by_id(
 
     Ok(record.map(|record| {
         (
-            DbUser {
+            User {
                 id: record.user_id,
                 username: record.username,
                 email: record.email,
@@ -81,7 +81,7 @@ async fn find_user_by_id(
 async fn find_user_by_email(
     deps: &impl GetDb,
     email: String,
-) -> RwResult<Option<(DbUser, PasswordHash)>> {
+) -> RwResult<Option<(User, PasswordHash)>> {
     let record = sqlx::query!(
         r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
         email
@@ -91,7 +91,7 @@ async fn find_user_by_email(
 
     Ok(record.map(|record| {
         (
-            DbUser {
+            User {
                 id: record.user_id,
                 username: record.username,
                 email: record.email,
@@ -107,8 +107,8 @@ async fn find_user_by_email(
 async fn update_user(
     deps: &impl GetDb,
     UserId(user_id): UserId,
-    update: DbUserUpdate,
-) -> RwResult<DbUser> {
+    update: UserUpdate,
+) -> RwResult<User> {
     let user = sqlx::query!(
         // language=PostgreSQL
         r#"
@@ -133,7 +133,7 @@ async fn update_user(
     .on_constraint("user_username_key", |_| RwError::UsernameTaken)
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
-    Ok(DbUser {
+    Ok(User {
         id: user_id,
         username: user.username,
         email: user.email,
@@ -174,7 +174,7 @@ mod tests {
         }
     }
 
-    async fn insert_test_user(db: &Db, user: TestNewUser) -> RwResult<DbUser> {
+    async fn insert_test_user(db: &Db, user: TestNewUser) -> RwResult<User> {
         insert_user(
             db,
             user.username.to_string(),
@@ -238,7 +238,7 @@ mod tests {
         let updated_user = db
             .update_user(
                 UserId(created_user.id),
-                DbUserUpdate {
+                UserUpdate {
                     email: Some("newmail".to_string()),
                     username: Some("newname".to_string()),
                     password_hash: Some(PasswordHash("newhash".to_string())),
@@ -265,9 +265,9 @@ mod tests {
         let error = db
             .update_user(
                 UserId(user.id),
-                DbUserUpdate {
+                UserUpdate {
                     username: Some("username".to_string()),
-                    ..DbUserUpdate::default()
+                    ..UserUpdate::default()
                 },
             )
             .await
@@ -285,9 +285,9 @@ mod tests {
         let error = db
             .update_user(
                 UserId(user.id),
-                DbUserUpdate {
+                UserUpdate {
                     email: Some("email".to_string()),
-                    ..DbUserUpdate::default()
+                    ..UserUpdate::default()
                 },
             )
             .await

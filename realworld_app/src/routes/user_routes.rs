@@ -77,7 +77,7 @@ mod tests {
     use super::*;
     use crate::test_util::*;
     use realworld_core::UserId;
-    use realworld_db::user_db::{self, DbUser};
+    use realworld_db::user_db;
     use realworld_user::auth::Authenticated;
     use realworld_user::*;
 
@@ -134,7 +134,7 @@ mod tests {
             user_db::insert_user::Fn.stub(|each| {
                 each.call(matching!("username", "email", _))
                     .answers(|(username, email, _)| {
-                        Ok(DbUser {
+                        Ok(user_db::User {
                             id: test_uuid(),
                             username,
                             email,

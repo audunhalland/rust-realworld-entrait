@@ -100,7 +100,7 @@ async fn update_user(
         deps,
         deps.update_user(
             user_id,
-            user_db::DbUserUpdate {
+            user_db::UserUpdate {
                 username: update.username,
                 email: update.email,
                 password_hash,
@@ -112,7 +112,7 @@ async fn update_user(
     ))
 }
 
-fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::DbUser) -> SignedUser {
+fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User) -> SignedUser {
     SignedUser {
         email: db_user.email,
         token: deps.sign_user_id(UserId(db_user.id)),
@@ -160,7 +160,7 @@ mod tests {
                     (_, _, PasswordHash(hash)) if hash == "h4sh"
                 })
                 .answers(|(username, email, _)| {
-                    Ok(user_db::DbUser {
+                    Ok(user_db::User {
                         id: test_user_id(),
                         username,
                         email,
@@ -193,7 +193,7 @@ mod tests {
                 .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
-                        user_db::DbUser {
+                        user_db::User {
                             id: test_user_id(),
                             username: "Name".into(),
                             email,
