@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sqlx = "0.6"
+sqlx = { version = "0.6", features = ["postgres", "time"] }
 axum = "0.5"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
@@ -16,6 +16,6 @@ anyhow = "1"
 tracing = "0.1"
 hmac = "0.12"
 sha2 = "0.10"
-time = "0.3"
+time = { version = "0.3", features = ["serde-well-known"] }
 entrait = "0.4"
 unimock = "0.3"

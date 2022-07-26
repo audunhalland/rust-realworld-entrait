@@ -1,6 +1,7 @@
 use entrait::entrait;
 
 pub mod error;
+pub mod timestamp;
 
 #[derive(Clone, Debug)]
 pub struct UserId(pub uuid::Uuid);

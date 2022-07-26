@@ -8,6 +8,7 @@ use entrait::entrait_export as entrait;
 use sqlx::error::DatabaseError;
 use sqlx::PgPool;
 
+pub mod article_db;
 pub mod user_db;
 
 #[derive(Clone)]
