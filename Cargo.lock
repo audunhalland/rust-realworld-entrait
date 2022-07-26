@@ -1172,11 +1172,15 @@ name = "realworld-article"
 version = "0.1.0"
 dependencies = [
  "entrait",
+ "itertools",
  "realworld-core",
  "realworld-db",
  "realworld-user",
  "serde",
  "time",
+ "tokio",
+ "unimock",
+ "uuid",
 ]
 
 [[package]]

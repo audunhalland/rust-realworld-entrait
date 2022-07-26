@@ -86,7 +86,7 @@ where
     async fn create_article(
         Extension(app): Extension<A>,
         token: Token,
-        Json(body): Json<ArticleBody<realworld_article::ArticleCreation>>,
+        Json(body): Json<ArticleBody<realworld_article::ArticleCreate>>,
     ) -> RwResult<Json<ArticleBody<realworld_article::Article>>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(ArticleBody {

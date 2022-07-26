@@ -143,14 +143,14 @@ async fn update_user(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::create_test_db;
     use crate::Db;
 
     use assert_matches::*;
 
-    struct TestNewUser {
+    pub struct TestNewUser {
         username: &'static str,
         email: &'static str,
         password_hash: &'static str,
@@ -166,7 +166,7 @@ mod tests {
         }
     }
 
-    fn other_user() -> TestNewUser {
+    pub fn other_user() -> TestNewUser {
         TestNewUser {
             username: "username2",
             email: "email2",
@@ -174,7 +174,7 @@ mod tests {
         }
     }
 
-    async fn insert_test_user(db: &Db, user: TestNewUser) -> RwResult<User> {
+    pub async fn insert_test_user(db: &Db, user: TestNewUser) -> RwResult<User> {
         insert_user(
             db,
             user.username.to_string(),

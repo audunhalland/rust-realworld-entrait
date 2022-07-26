@@ -1,13 +1,15 @@
 mod profile;
 
-use realworld_core::error::RwResult;
+use realworld_core::error::*;
+use realworld_core::timestamp::Timestamptz;
 use realworld_core::UserId;
-use realworld_user::auth;
+use realworld_db::article_db;
+use realworld_user::auth::Authenticated;
 
 use entrait::entrait_export as entrait;
-use time::OffsetDateTime;
+use itertools::Itertools;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Article {
     slug: String,
@@ -15,20 +17,42 @@ pub struct Article {
     description: String,
     body: String,
     tag_list: Vec<String>,
-    created_at: OffsetDateTime,
+    created_at: Timestamptz,
     // Note: the Postman collection included with the spec assumes that this is never null.
     // We prefer to leave it unset unless the row has actually be updated.
-    updated_at: OffsetDateTime,
+    updated_at: Timestamptz,
     favorited: bool,
     favorites_count: i64,
     author: profile::Profile,
+}
+
+impl From<article_db::Article> for Article {
+    fn from(q: article_db::Article) -> Self {
+        Self {
+            slug: q.slug,
+            title: q.title,
+            description: q.description,
+            body: q.body,
+            tag_list: q.tag_list,
+            created_at: q.created_at,
+            updated_at: q.updated_at,
+            favorited: q.favorited,
+            favorites_count: q.favorites_count,
+            author: profile::Profile {
+                username: q.author_username,
+                bio: q.author_bio,
+                image: q.author_image,
+                following: q.following_author,
+            },
+        }
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 // The Realworld spec doesn't mention this as an API convention, it just finally shows up
 // when you're looking at the spec for the Article object and see `tagList` as a field name.
 #[serde(rename_all = "camelCase")]
-pub struct ArticleCreation {
+pub struct ArticleCreate {
     title: String,
     description: String,
     body: String,
@@ -55,7 +79,7 @@ pub struct ListArticlesQuery {
 #[entrait(pub ListArticles)]
 pub async fn list_articles<D>(
     _: &D,
-    user_id: Option<auth::Authenticated<UserId>>,
+    user_id: Option<Authenticated<UserId>>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
     todo!()
@@ -64,25 +88,37 @@ pub async fn list_articles<D>(
 #[entrait(pub GetArticle)]
 pub async fn get_article<D>(
     _: &D,
-    user_id: Option<auth::Authenticated<UserId>>,
+    user_id: Option<Authenticated<UserId>>,
     slug: String,
 ) -> RwResult<Article> {
     todo!()
 }
 
 #[entrait(pub CreateArticle)]
-pub async fn create_article<D>(
-    _: &D,
-    user_id: auth::Authenticated<UserId>,
-    article: ArticleCreation,
+pub async fn create_article(
+    deps: &impl article_db::InsertArticle,
+    Authenticated(user_id): Authenticated<UserId>,
+    article: ArticleCreate,
 ) -> RwResult<Article> {
-    todo!()
+    let slug = slugify(&article.title);
+    let db_article = deps
+        .insert_article(
+            user_id,
+            slug,
+            article.title,
+            article.description,
+            article.body,
+            article.tag_list,
+        )
+        .await?;
+
+    Ok(db_article.into())
 }
 
 #[entrait(pub UpdateArticle)]
 pub async fn update_article<D>(
     _: &D,
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
     slug: String,
     article: ArticleUpdate,
 ) -> RwResult<Article> {
@@ -92,7 +128,7 @@ pub async fn update_article<D>(
 #[entrait(pub DeleteArticle)]
 pub async fn delete_article<D>(
     _: &D,
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
     slug: String,
 ) -> RwResult<()> {
     todo!()
@@ -101,7 +137,7 @@ pub async fn delete_article<D>(
 #[entrait(pub FavoriteArticle)]
 pub async fn favorite_article<D>(
     _: &D,
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
     slug: String,
 ) -> RwResult<Article> {
     todo!()
@@ -110,8 +146,90 @@ pub async fn favorite_article<D>(
 #[entrait(pub UnfavoriteArticle)]
 pub async fn unfavorite_article<D>(
     _: &D,
-    user_id: auth::Authenticated<UserId>,
+    Authenticated(user_id): Authenticated<UserId>,
     slug: String,
 ) -> RwResult<Article> {
     todo!()
+}
+
+fn slugify(string: &str) -> String {
+    const QUOTE_CHARS: &[char] = &['\'', '"'];
+
+    string
+        // Split on anything that isn't a word character or quotation mark.
+        // This has the effect of keeping contractions and possessives together.
+        .split(|c: char| !(QUOTE_CHARS.contains(&c) || c.is_alphanumeric()))
+        // If multiple non-word characters follow each other then we'll get empty substrings
+        // so we'll filter those out.
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            // Remove quotes from the substring.
+            //
+            // This allocation is probably avoidable with some more iterator hackery but
+            // at that point we'd be micro-optimizing. This function isn't called all that often.
+            let mut s = s.replace(QUOTE_CHARS, "");
+            // Make the substring lowercase (in-place operation)
+            s.make_ascii_lowercase();
+            s
+        })
+        .join("-")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use unimock::*;
+
+    fn test_timestamp() -> Timestamptz {
+        Timestamptz(
+            time::OffsetDateTime::parse(
+                "2019-10-12T07:20:50.52Z",
+                &time::format_description::well_known::Rfc3339,
+            )
+            .unwrap(),
+        )
+    }
+
+    fn test_db_article() -> article_db::Article {
+        article_db::Article {
+            slug: "slug".to_string(),
+            title: "title".to_string(),
+            description: "desc".to_string(),
+            body: "body".to_string(),
+            tag_list: vec!["tag".to_string()],
+            created_at: test_timestamp(),
+            updated_at: test_timestamp(),
+            favorited: false,
+            favorites_count: 0,
+            author_username: "author".to_string(),
+            author_bio: "bio".to_string(),
+            author_image: Some("image".to_string()),
+            following_author: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn create_article_should_slugify() {
+        let deps = mock(Some(
+            article_db::insert_article::Fn
+                .next_call(matching! {
+                    (_, "my-title", "My Title", "Desc", "Body", _)
+                })
+                .answers(|_| Ok(test_db_article()))
+                .once()
+                .in_order(),
+        ));
+        create_article(
+            &deps,
+            Authenticated(UserId(uuid::Uuid::new_v4())),
+            ArticleCreate {
+                title: "My Title".to_string(),
+                description: "Desc".to_string(),
+                body: "Body".to_string(),
+                tag_list: vec!["tag".to_string()],
+            },
+        )
+        .await
+        .unwrap();
+    }
 }

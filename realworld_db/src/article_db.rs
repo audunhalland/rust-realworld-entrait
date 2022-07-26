@@ -7,67 +7,23 @@ use realworld_core::UserId;
 
 use entrait::entrait_export as entrait;
 
-pub struct Profile {
-    pub username: String,
-    pub bio: String,
-    pub image: Option<String>,
-    pub following: bool,
-}
-
 pub struct Article {
-    slug: String,
-    title: String,
-    description: String,
-    body: String,
-    tag_list: Vec<String>,
-    created_at: Timestamptz,
-    // Note: the Postman collection included with the spec assumes that this is never null.
-    // We prefer to leave it unset unless the row has actually be updated.
-    updated_at: Timestamptz,
-    favorited: bool,
-    favorites_count: i64,
-    author: Profile,
-}
-
-impl From<ArticleFromQuery> for Article {
-    fn from(q: ArticleFromQuery) -> Self {
-        Self {
-            slug: q.slug,
-            title: q.title,
-            description: q.description,
-            body: q.body,
-            tag_list: q.tag_list,
-            created_at: q.created_at,
-            updated_at: q.updated_at,
-            favorited: q.favorited,
-            favorites_count: q.favorites_count,
-            author: Profile {
-                username: q.author_username,
-                bio: q.author_bio,
-                image: q.author_image,
-                following: q.following_author,
-            },
-        }
-    }
-}
-
-struct ArticleFromQuery {
-    slug: String,
-    title: String,
-    description: String,
-    body: String,
-    tag_list: Vec<String>,
-    created_at: Timestamptz,
-    updated_at: Timestamptz,
-    favorited: bool,
-    favorites_count: i64,
-    author_username: String,
-    author_bio: String,
-    author_image: Option<String>,
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub body: String,
+    pub tag_list: Vec<String>,
+    pub created_at: Timestamptz,
+    pub updated_at: Timestamptz,
+    pub favorited: bool,
+    pub favorites_count: i64,
+    pub author_username: String,
+    pub author_bio: String,
+    pub author_image: Option<String>,
     // This was originally `author_following` to match other fields but that's kind of confusing.
     // That made it sound like a flag showing if the author is following the current user
     // but the intent is the other way round.
-    following_author: bool,
+    pub following_author: bool,
 }
 
 #[entrait(pub InsertArticle)]
@@ -81,7 +37,7 @@ async fn insert_article(
     tag_list: Vec<String>,
 ) -> RwResult<Article> {
     let article = sqlx::query_as!(
-        ArticleFromQuery,
+        Article,
         // language=PostgreSQL
         r#"
             WITH inserted_article AS (
@@ -120,5 +76,48 @@ async fn insert_article(
     .await
     .on_constraint("article_slug_key", |_| RwError::DuplicateArticleSlug(slug))?;
 
-    Ok(article.into())
+    Ok(article)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::create_test_db;
+    use crate::user_db::tests as user_db_test;
+
+    #[tokio::test]
+    async fn should_insert_article() {
+        let db = create_test_db().await;
+        let user = user_db_test::insert_test_user(&db, Default::default())
+            .await
+            .unwrap();
+
+        let article = insert_article(
+            &db,
+            UserId(user.id),
+            "slug".to_string(),
+            "title".to_string(),
+            "desc".to_string(),
+            "body".to_string(),
+            vec!["tag".to_string()],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(article.slug, "slug");
+        assert_eq!(article.title, "title");
+        assert_eq!(article.description, "desc");
+        assert_eq!(article.body, "body");
+        assert_eq!(article.tag_list, &["tag".to_string()]);
+
+        assert_eq!(article.created_at.0, article.updated_at.0);
+
+        assert_eq!(article.favorited, false);
+        assert_eq!(article.favorites_count, 0);
+
+        assert_eq!(article.author_username, user.username);
+        assert_eq!(article.author_bio, user.bio);
+        assert_eq!(article.author_image, user.image);
+        assert_eq!(article.following_author, false);
+    }
 }
