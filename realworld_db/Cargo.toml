@@ -19,6 +19,7 @@ time = "0.3"
 uuid = "1"
 sha2 = "0.10"
 anyhow = "1"
+futures = "0.3"
 
 [dev-dependencies]
 url = "2.0"

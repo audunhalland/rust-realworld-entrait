@@ -79,7 +79,7 @@ where
     ) -> RwResult<Json<ArticleBody>> {
         let user_id = token.map(|token| app.authenticate(token)).transpose()?;
         Ok(Json(ArticleBody {
-            article: app.get_article(user_id, slug).await?,
+            article: app.get_article(user_id, &slug).await?,
         }))
     }
 

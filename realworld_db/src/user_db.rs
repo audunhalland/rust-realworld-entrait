@@ -146,7 +146,6 @@ async fn update_user(
 pub mod tests {
     use super::*;
     use crate::create_test_db;
-    use crate::Db;
 
     use assert_matches::*;
 
@@ -174,9 +173,9 @@ pub mod tests {
         }
     }
 
-    pub async fn insert_test_user(db: &Db, user: TestNewUser) -> RwResult<User> {
-        insert_user(
-            db,
+    #[entrait(pub InsertTestUser, unimock = false)]
+    pub async fn insert_test_user(db: &impl InsertUser, user: TestNewUser) -> RwResult<User> {
+        db.insert_user(
             user.username.to_string(),
             user.email.to_string(),
             PasswordHash(user.password_hash.to_string()),
@@ -187,7 +186,7 @@ pub mod tests {
     #[tokio::test]
     async fn should_insert_then_fetch_user() {
         let db = create_test_db().await;
-        let created_user = insert_test_user(&db, TestNewUser::default()).await.unwrap();
+        let created_user = db.insert_test_user(TestNewUser::default()).await.unwrap();
 
         assert_eq!("username", created_user.username);
         assert_eq!("email", created_user.email);
@@ -203,9 +202,10 @@ pub mod tests {
     #[tokio::test]
     async fn should_fail_to_create_two_users_with_the_same_username() {
         let db = create_test_db().await;
-        insert_test_user(&db, TestNewUser::default()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await.unwrap();
 
-        let error = insert_test_user(&db, TestNewUser::default())
+        let error = db
+            .insert_test_user(TestNewUser::default())
             .await
             .expect_err("should error");
 
@@ -215,17 +215,15 @@ pub mod tests {
     #[tokio::test]
     async fn should_fail_to_create_two_users_with_the_same_email() {
         let db = create_test_db().await;
-        insert_test_user(&db, TestNewUser::default()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await.unwrap();
 
-        let error = insert_test_user(
-            &db,
-            TestNewUser {
+        let error = db
+            .insert_test_user(TestNewUser {
                 username: "newusername",
                 ..TestNewUser::default()
-            },
-        )
-        .await
-        .expect_err("should error");
+            })
+            .await
+            .expect_err("should error");
 
         assert_matches!(error, RwError::EmailTaken);
     }
@@ -233,7 +231,7 @@ pub mod tests {
     #[tokio::test]
     async fn should_update_user() {
         let db = create_test_db().await;
-        let created_user = insert_test_user(&db, TestNewUser::default()).await.unwrap();
+        let created_user = db.insert_test_user(TestNewUser::default()).await.unwrap();
 
         let updated_user = db
             .update_user(
@@ -259,8 +257,8 @@ pub mod tests {
     #[tokio::test]
     async fn should_fail_to_update_user_to_taken_username() {
         let db = create_test_db().await;
-        insert_test_user(&db, TestNewUser::default()).await.unwrap();
-        let user = insert_test_user(&db, other_user()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let user = db.insert_test_user(other_user()).await.unwrap();
 
         let error = db
             .update_user(
@@ -279,8 +277,8 @@ pub mod tests {
     #[tokio::test]
     async fn should_fail_to_update_user_to_taken_email() {
         let db = create_test_db().await;
-        insert_test_user(&db, TestNewUser::default()).await.unwrap();
-        let user = insert_test_user(&db, other_user()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let user = db.insert_test_user(other_user()).await.unwrap();
 
         let error = db
             .update_user(

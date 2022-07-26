@@ -1,6 +1,7 @@
 mod profile;
 
 use realworld_core::error::*;
+use realworld_core::iter_util::Single;
 use realworld_core::timestamp::Timestamptz;
 use realworld_core::UserId;
 use realworld_db::article_db;
@@ -77,21 +78,49 @@ pub struct ListArticlesQuery {
 }
 
 #[entrait(pub ListArticles)]
-pub async fn list_articles<D>(
-    _: &D,
-    user_id: Option<Authenticated<UserId>>,
+pub async fn list_articles(
+    deps: &impl article_db::SelectArticles,
+    user: Option<Authenticated<UserId>>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
-    todo!()
+    let articles = deps
+        .select_articles(
+            user.map(|auth| auth.0),
+            article_db::Filter {
+                slug: None,
+                tag: query.tag.as_deref(),
+                author: query.author.as_deref(),
+                favorited: query.favorited.as_deref(),
+                limit: query.limit,
+                offset: query.offset,
+            },
+        )
+        .await?;
+
+    Ok(articles.into_iter().map(Into::into).collect())
 }
 
 #[entrait(pub GetArticle)]
-pub async fn get_article<D>(
-    _: &D,
-    user_id: Option<Authenticated<UserId>>,
-    slug: String,
+pub async fn get_article(
+    deps: &impl article_db::SelectArticles,
+    user: Option<Authenticated<UserId>>,
+    slug: &str,
 ) -> RwResult<Article> {
-    todo!()
+    let articles = deps
+        .select_articles(
+            user.map(|auth| auth.0),
+            article_db::Filter {
+                slug: Some(&slug),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+    articles
+        .into_iter()
+        .single_or_none()?
+        .map(Into::into)
+        .ok_or(RwError::ArticleNotFound)
 }
 
 #[entrait(pub CreateArticle)]
@@ -104,11 +133,11 @@ pub async fn create_article(
     let db_article = deps
         .insert_article(
             user_id,
-            slug,
-            article.title,
-            article.description,
-            article.body,
-            article.tag_list,
+            &slug,
+            &article.title,
+            &article.description,
+            &article.body,
+            &article.tag_list,
         )
         .await?;
 

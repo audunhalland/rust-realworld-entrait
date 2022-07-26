@@ -1,6 +1,7 @@
 use entrait::entrait;
 
 pub mod error;
+pub mod iter_util;
 pub mod timestamp;
 
 #[derive(Clone, Debug)]

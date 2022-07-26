@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-#[derive(sqlx::Type, Clone)]
+#[derive(sqlx::Type, Clone, Eq, PartialEq, Debug)]
 pub struct Timestamptz(pub time::OffsetDateTime);
 
 impl std::fmt::Display for Timestamptz {
