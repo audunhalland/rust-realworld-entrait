@@ -84,21 +84,19 @@ pub async fn list_articles(
     MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
-    let articles = deps
-        .select_articles(
-            UserId(opt_user_id.map(UserId::into_id)),
-            article_db::Filter {
-                slug: None,
-                tag: query.tag.as_deref(),
-                author: query.author.as_deref(),
-                favorited: query.favorited.as_deref(),
-                limit: query.limit,
-                offset: query.offset,
-            },
-        )
-        .await?;
-
-    Ok(articles.into_iter().map(Into::into).collect())
+    deps.select_articles(
+        UserId(opt_user_id.map(UserId::into_id)),
+        article_db::Filter {
+            slug: None,
+            tag: query.tag.as_deref(),
+            author: query.author.as_deref(),
+            favorited: query.favorited.as_deref(),
+            limit: query.limit,
+            offset: query.offset,
+        },
+    )
+    .await
+    .map(|articles| articles.into_iter().map(Into::into).collect())
 }
 
 #[entrait(pub GetArticle)]
@@ -107,21 +105,18 @@ pub async fn get_article(
     MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     slug: &str,
 ) -> RwResult<Article> {
-    let articles = deps
-        .select_articles(
-            UserId(opt_user_id.map(UserId::into_id)),
-            article_db::Filter {
-                slug: Some(&slug),
-                ..Default::default()
-            },
-        )
-        .await?;
-
-    articles
-        .into_iter()
-        .single_or_none()?
-        .map(Into::into)
-        .ok_or(RwError::ArticleNotFound)
+    deps.select_articles(
+        UserId(opt_user_id.map(UserId::into_id)),
+        article_db::Filter {
+            slug: Some(&slug),
+            ..Default::default()
+        },
+    )
+    .await?
+    .into_iter()
+    .single_or_none()?
+    .map(Into::into)
+    .ok_or(RwError::ArticleNotFound)
 }
 
 #[entrait(pub CreateArticle)]
@@ -164,18 +159,17 @@ pub async fn update_article(
     )
     .await?;
 
-    Ok(deps
-        .select_articles(
-            UserId(Some(user_id.0)),
-            article_db::Filter {
-                slug: Some(new_slug.as_deref().unwrap_or(slug)),
-                ..Default::default()
-            },
-        )
-        .await?
-        .into_iter()
-        .single()?
-        .into())
+    deps.select_articles(
+        UserId(Some(user_id.0)),
+        article_db::Filter {
+            slug: Some(new_slug.as_deref().unwrap_or(slug)),
+            ..Default::default()
+        },
+    )
+    .await?
+    .into_iter()
+    .single()
+    .map(Into::into)
 }
 
 #[entrait(pub DeleteArticle)]
@@ -266,9 +260,7 @@ mod tests {
     async fn create_article_should_slugify() {
         let deps = mock(Some(
             article_db::insert_article::Fn
-                .next_call(matching! {
-                    (_, "my-title", _, _, _, _)
-                })
+                .next_call(matching!(UserId(_), "my-title", _, _, _, _))
                 .answers(|_| Ok(test_db_article()))
                 .once()
                 .in_order(),
@@ -291,9 +283,13 @@ mod tests {
     async fn get_article_empty_result_should_produce_not_found_error() {
         let deps = mock(Some(
             article_db::select_articles::Fn
-                .next_call(matching! {
-                    (UserId(None), filter) if filter.slug == Some("slug")
-                })
+                .next_call(matching!(
+                    UserId(None),
+                    article_db::Filter {
+                        slug: Some("slug"),
+                        ..
+                    }
+                ))
                 .answers(|_| Ok(vec![]))
                 .once()
                 .in_order(),
@@ -322,7 +318,13 @@ mod tests {
                 .once()
                 .in_order(),
             article_db::select_articles::Fn
-                .next_call(matching!(_, _))
+                .next_call(matching!(
+                    UserId(Some(_)),
+                    article_db::Filter {
+                        slug: Some("new-title"),
+                        ..
+                    }
+                ))
                 .answers(|_| Ok(vec![test_db_article()]))
                 .once()
                 .in_order(),

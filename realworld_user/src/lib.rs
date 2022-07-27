@@ -156,9 +156,9 @@ mod tests {
         let deps = mock([
             mock_hash_password(),
             user_db::insert_user::Fn
-                .next_call(matching! {
-                    (_, _, PasswordHash(hash)) if hash == "h4sh"
-                })
+                .next_call(matching!(
+                    ("Name", "name@email.com", PasswordHash(hash)) if hash == "h4sh"
+                ))
                 .answers(|(username, email, _)| {
                     Ok(user_db::User {
                         id: test_user_id(),

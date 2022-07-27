@@ -183,16 +183,16 @@ mod tests {
     async fn current_user_should_work() {
         let deps = mock([
             auth::authenticate::Fn
-                .next_call(matching! {
+                .next_call(matching!(
                     (token) if token.token() == "123"
-                })
+                ))
                 .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
                 .once()
                 .in_order(),
             fetch_current_user::Fn
-                .next_call(matching! {
+                .next_call(matching!(
                     (Authenticated(UserId(id))) if id == &test_uuid()
-                })
+                ))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),
