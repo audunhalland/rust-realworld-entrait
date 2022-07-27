@@ -144,12 +144,18 @@ async fn fetch_profile(
 
 #[entrait(pub Follow)]
 async fn follow(
-    deps: &impl user_db::FindUserByUsername,
+    deps: &(impl user_db::InsertFollow + user_db::DeleteFollow + FetchProfile),
     Authenticated(current_user_id): Authenticated<UserId>,
     username: &str,
     value: bool,
 ) -> RwResult<profile::Profile> {
-    panic!()
+    if value {
+        deps.insert_follow(current_user_id, username).await?;
+    } else {
+        deps.delete_follow(current_user_id, username).await?;
+    }
+    deps.fetch_profile(MaybeAuthenticated(Some(current_user_id)), username)
+        .await
 }
 
 #[cfg(test)]

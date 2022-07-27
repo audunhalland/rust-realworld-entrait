@@ -20,6 +20,7 @@ pub struct Credentials {
     pub password_hash: PasswordHash,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Following(pub bool);
 
 #[derive(Clone, Default)]
@@ -202,6 +203,74 @@ async fn update_user(
     ))
 }
 
+#[entrait(pub InsertFollow)]
+async fn insert_follow(deps: &impl GetDb, current_user_id: UserId, username: &str) -> RwResult<()> {
+    let result = sqlx::query!(
+        r#"
+            WITH id_pair AS (
+                SELECT
+                    $1::uuid AS following,
+                    user_id as followed
+                FROM app.user
+                WHERE username = $2
+            ), insertion AS (
+                INSERT INTO app.follow (following_user_id, followed_user_id)
+                    SELECT following, followed FROM id_pair
+                ON CONFLICT DO NOTHING
+                RETURNING 1
+            )
+            SELECT
+                EXISTS(SELECT 1 FROM id_pair) "user_exists!",
+                EXISTS(SELECT 1 FROM insertion) "inserted!"
+        "#,
+        current_user_id.0,
+        username
+    )
+    .fetch_one(&deps.get_db().pg_pool)
+    .await
+    .on_constraint("follow_following_user_id", |_| RwError::ProfileNotFound)
+    .on_constraint("user_cannot_follow_self", |_| RwError::Forbidden)?;
+
+    if !result.user_exists {
+        Err(RwError::ProfileNotFound)
+    } else {
+        Ok(())
+    }
+}
+
+#[entrait(pub DeleteFollow)]
+async fn delete_follow(deps: &impl GetDb, current_user_id: UserId, username: &str) -> RwResult<()> {
+    let result = sqlx::query!(
+        r#"
+            WITH other_user AS (
+                SELECT user_id FROM app.user WHERE username = $2
+            ),
+            deleted_follow AS (
+                DELETE from app.follow
+                WHERE following_user_id = $1
+                AND followed_user_id = (SELECT user_id FROM other_user)
+                RETURNING 1
+            )
+            SELECT
+                -- This will be `true` if the article existed before we deleted it.
+                EXISTS(SELECT 1 FROM other_user) "existed!",
+                -- This will only be `true` if we actually deleted the article.
+                EXISTS(SELECT 1 FROM deleted_follow) "deleted!"
+        "#,
+        current_user_id.0,
+        username
+    )
+    .fetch_one(&deps.get_db().pg_pool)
+    .await?;
+
+    if !result.existed {
+        Err(RwError::ProfileNotFound)
+    } else {
+        // Note: There is no error code for unfollowing where there was no following in the first place
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -359,5 +428,70 @@ pub mod tests {
             .expect_err("should error");
 
         assert_matches!(error, RwError::EmailTaken);
+    }
+
+    #[tokio::test]
+    async fn following_and_unfollowing_should_work() {
+        let db = create_test_db().await;
+        let (user1, _) = db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let (user2, _) = db.insert_test_user(other_user()).await.unwrap();
+
+        db.insert_follow(user1.user_id, &user2.username)
+            .await
+            .unwrap();
+
+        assert_matches!(
+            db.find_user_by_username(user1.user_id.some(), &user2.username)
+                .await
+                .unwrap()
+                .unwrap(),
+            (_, Following(true))
+        );
+
+        // Idempotent
+        db.insert_follow(user1.user_id, &user2.username)
+            .await
+            .unwrap();
+
+        assert_matches!(
+            db.insert_follow(user1.user_id, "unknown")
+                .await
+                .unwrap_err(),
+            RwError::ProfileNotFound
+        );
+
+        assert_matches!(
+            db.delete_follow(user1.user_id, "unknown")
+                .await
+                .unwrap_err(),
+            RwError::ProfileNotFound
+        );
+
+        db.delete_follow(user1.user_id, &user2.username)
+            .await
+            .unwrap();
+        db.delete_follow(user1.user_id, &user2.username)
+            .await
+            .unwrap();
+
+        assert_matches!(
+            db.find_user_by_username(user1.user_id.some(), &user2.username)
+                .await
+                .unwrap()
+                .unwrap(),
+            (_, Following(false))
+        );
+    }
+
+    #[tokio::test]
+    async fn follow_unfollow_user_should_fail_on_invalid_current_user() {
+        let db = create_test_db().await;
+        let (other_user, _) = db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let err = db
+            .insert_follow(UserId(Uuid::new_v4()), &other_user.username)
+            .await
+            .unwrap_err();
+
+        assert_matches!(err, RwError::Sqlx(_));
     }
 }
