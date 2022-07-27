@@ -33,6 +33,24 @@ fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
 #[derive(Clone)]
 pub struct Authenticated<T>(pub T);
 
+impl<T> From<Authenticated<T>> for MaybeAuthenticated<T> {
+    fn from(authenticated: Authenticated<T>) -> Self {
+        Self(Some(authenticated.0))
+    }
+}
+
+impl<T> From<Option<Authenticated<T>>> for MaybeAuthenticated<T> {
+    fn from(authenticated: Option<Authenticated<T>>) -> Self {
+        match authenticated {
+            Some(authenticated) => Self(Some(authenticated.0)),
+            None => Self(None),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct MaybeAuthenticated<T>(pub Option<T>);
+
 #[entrait(pub Authenticate)]
 fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<Authenticated<UserId>> {
     let token = token.token();

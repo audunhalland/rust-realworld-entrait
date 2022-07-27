@@ -68,7 +68,7 @@ where
     ) -> RwResult<Json<MultipleArticlesBody>> {
         let user_id = token.map(|token| app.authenticate(token)).transpose()?;
         Ok(Json(MultipleArticlesBody {
-            articles: app.list_articles(user_id, query).await?,
+            articles: app.list_articles(user_id.into(), query).await?,
         }))
     }
 
@@ -79,7 +79,7 @@ where
     ) -> RwResult<Json<ArticleBody>> {
         let user_id = token.map(|token| app.authenticate(token)).transpose()?;
         Ok(Json(ArticleBody {
-            article: app.get_article(user_id, &slug).await?,
+            article: app.get_article(user_id.into(), &slug).await?,
         }))
     }
 
@@ -102,7 +102,7 @@ where
     ) -> RwResult<Json<ArticleBody>> {
         let user_id = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.update_article(user_id, slug, body.article).await?,
+            article: app.update_article(user_id, &slug, body.article).await?,
         }))
     }
 
@@ -145,6 +145,7 @@ mod tests {
     use crate::test_util::*;
 
     use axum::http::{Request, StatusCode};
+    use realworld_user::auth::MaybeAuthenticated;
     use unimock::*;
 
     fn test_router(deps: Unimock) -> axum::Router {
@@ -156,7 +157,7 @@ mod tests {
         let deps = mock(Some(
             realworld_article::list_articles::Fn
                 .next_call(matching! {
-                    (None, query) if query == &realworld_article::ListArticlesQuery::default()
+                    (MaybeAuthenticated(None), query) if query == &realworld_article::ListArticlesQuery::default()
                 })
                 .answers(|_| Ok(vec![]))
                 .once()

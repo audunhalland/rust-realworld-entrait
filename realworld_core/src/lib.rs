@@ -5,7 +5,13 @@ pub mod iter_util;
 pub mod timestamp;
 
 #[derive(Clone, Debug)]
-pub struct UserId(pub uuid::Uuid);
+pub struct UserId<I = uuid::Uuid>(pub I);
+
+impl<I> UserId<I> {
+    pub fn into_id(self) -> I {
+        self.0
+    }
+}
 
 #[derive(Clone)]
 pub struct PasswordHash(pub String);

@@ -7,6 +7,7 @@ use realworld_core::UserId;
 
 use entrait::entrait_export as entrait;
 use futures::TryStreamExt;
+use uuid::Uuid;
 
 #[cfg_attr(test, derive(Eq, PartialEq, Debug))]
 pub struct Article {
@@ -41,7 +42,7 @@ pub struct Filter<'a> {
 #[entrait(pub SelectArticles)]
 async fn select_articles(
     deps: &impl GetDb,
-    user: Option<UserId>,
+    user: UserId<Option<Uuid>>,
     filter: Filter<'_>,
 ) -> RwResult<Vec<Article>> {
     let articles: Vec<Article> = sqlx::query_as!(
@@ -89,7 +90,7 @@ async fn select_articles(
             LIMIT $6
             OFFSET $7
         "#,
-        user.map(|user| user.0),
+        user.0,
         filter.slug,
         filter.tag,
         filter.author,
@@ -170,7 +171,7 @@ mod tests {
 
     #[entrait(SelectSingle, unimock = false)]
     async fn select_single(db: &impl SelectArticles, filter: Filter<'_>) -> Article {
-        db.select_articles(None, filter)
+        db.select_articles(UserId(None), filter)
             .await
             .unwrap()
             .into_iter()
@@ -181,7 +182,7 @@ mod tests {
     #[entrait(SelectSingleWithUser, unimock = false)]
     async fn select_single_with_user(
         db: &impl SelectArticles,
-        user: Option<UserId>,
+        user: UserId<Option<Uuid>>,
         filter: Filter<'_>,
     ) -> Article {
         db.select_articles(user, filter)
@@ -211,7 +212,7 @@ mod tests {
 
         let fetched_article = db
             .select_single_with_user(
-                Some(UserId(user.id)),
+                UserId(Some(user.id)),
                 Filter {
                     slug: Some("slug"),
                     ..Default::default()
@@ -300,7 +301,7 @@ mod tests {
 
         assert_eq!(
             db.select_articles(
-                None,
+                UserId(None),
                 Filter {
                     favorited: Some(&user1.username),
                     ..Default::default()
@@ -313,7 +314,7 @@ mod tests {
 
         assert_eq!(
             db.select_articles(
-                None,
+                UserId(None),
                 Filter {
                     offset: Some(1),
                     ..Default::default()

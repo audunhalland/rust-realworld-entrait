@@ -1219,6 +1219,7 @@ dependencies = [
 name = "realworld-article"
 version = "0.1.0"
 dependencies = [
+ "assert_matches",
  "entrait",
  "itertools",
  "realworld-core",

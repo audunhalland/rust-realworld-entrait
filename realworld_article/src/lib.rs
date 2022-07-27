@@ -5,12 +5,13 @@ use realworld_core::iter_util::Single;
 use realworld_core::timestamp::Timestamptz;
 use realworld_core::UserId;
 use realworld_db::article_db;
-use realworld_user::auth::Authenticated;
+use realworld_user::auth::{Authenticated, MaybeAuthenticated};
 
 use entrait::entrait_export as entrait;
 use itertools::Itertools;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
 #[serde(rename_all = "camelCase")]
 pub struct Article {
     slug: String,
@@ -80,12 +81,12 @@ pub struct ListArticlesQuery {
 #[entrait(pub ListArticles)]
 pub async fn list_articles(
     deps: &impl article_db::SelectArticles,
-    user: Option<Authenticated<UserId>>,
+    MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
     let articles = deps
         .select_articles(
-            user.map(|auth| auth.0),
+            UserId(opt_user_id.map(UserId::into_id)),
             article_db::Filter {
                 slug: None,
                 tag: query.tag.as_deref(),
@@ -103,12 +104,12 @@ pub async fn list_articles(
 #[entrait(pub GetArticle)]
 pub async fn get_article(
     deps: &impl article_db::SelectArticles,
-    user: Option<Authenticated<UserId>>,
+    MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     slug: &str,
 ) -> RwResult<Article> {
     let articles = deps
         .select_articles(
-            user.map(|auth| auth.0),
+            UserId(opt_user_id.map(UserId::into_id)),
             article_db::Filter {
                 slug: Some(&slug),
                 ..Default::default()
@@ -130,25 +131,23 @@ pub async fn create_article(
     article: ArticleCreate,
 ) -> RwResult<Article> {
     let slug = slugify(&article.title);
-    let db_article = deps
-        .insert_article(
-            user_id,
-            &slug,
-            &article.title,
-            &article.description,
-            &article.body,
-            &article.tag_list,
-        )
-        .await?;
-
-    Ok(db_article.into())
+    deps.insert_article(
+        user_id,
+        &slug,
+        &article.title,
+        &article.description,
+        &article.body,
+        &article.tag_list,
+    )
+    .await
+    .map(Into::into)
 }
 
 #[entrait(pub UpdateArticle)]
 pub async fn update_article<D>(
     _: &D,
     Authenticated(user_id): Authenticated<UserId>,
-    slug: String,
+    slug: &str,
     article: ArticleUpdate,
 ) -> RwResult<Article> {
     todo!()
@@ -207,6 +206,7 @@ fn slugify(string: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::*;
     use unimock::*;
 
     fn test_timestamp() -> Timestamptz {
@@ -242,7 +242,7 @@ mod tests {
         let deps = mock(Some(
             article_db::insert_article::Fn
                 .next_call(matching! {
-                    (_, "my-title", "My Title", "Desc", "Body", _)
+                    (_, "my-title", _, _, _, _)
                 })
                 .answers(|_| Ok(test_db_article()))
                 .once()
@@ -260,5 +260,22 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_article_empty_result_should_produce_not_found_error() {
+        let deps = mock(Some(
+            article_db::select_articles::Fn
+                .next_call(matching! {
+                    (UserId(None), filter) if filter.slug == Some("slug")
+                })
+                .answers(|_| Ok(vec![]))
+                .once()
+                .in_order(),
+        ));
+        assert_matches!(
+            get_article(&deps, MaybeAuthenticated(None), "slug").await,
+            Err(RwError::ArticleNotFound)
+        );
     }
 }
