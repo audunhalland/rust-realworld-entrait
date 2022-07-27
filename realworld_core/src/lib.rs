@@ -17,7 +17,7 @@ impl<I> UserId<I> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PasswordHash(pub String);
 
 ///

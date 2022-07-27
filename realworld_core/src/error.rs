@@ -28,6 +28,9 @@ pub enum RwError {
     #[error("email is taken")]
     EmailTaken,
 
+    #[error("user profile not found")]
+    ProfileNotFound,
+
     #[error("article not found")]
     ArticleNotFound,
 
@@ -50,6 +53,7 @@ impl RwError {
             Self::EmailDoesNotExist => StatusCode::UNPROCESSABLE_ENTITY,
             Self::UsernameTaken => StatusCode::UNPROCESSABLE_ENTITY,
             Self::EmailTaken => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::ProfileNotFound => StatusCode::NOT_FOUND,
             Self::ArticleNotFound => StatusCode::NOT_FOUND,
             Self::DuplicateArticleSlug(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Sqlx(_) | Self::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -80,6 +84,7 @@ impl axum::response::IntoResponse for RwError {
             Self::EmailTaken => {
                 unprocessable_entity_with_errors([("email".into(), vec!["email is taken".into()])])
             }
+            Self::ProfileNotFound => (self.status_code(), ()).into_response(),
             Self::ArticleNotFound => (self.status_code(), ()).into_response(),
             Self::DuplicateArticleSlug(slug) => unprocessable_entity_with_errors([(
                 "slug".into(),

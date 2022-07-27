@@ -80,11 +80,11 @@ pub struct ListArticlesQuery {
 #[entrait(pub ListArticles)]
 async fn list_articles(
     deps: &impl article_db::SelectArticles,
-    MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
+    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
     deps.select_articles(
-        UserId(opt_user_id.map(UserId::into_id)),
+        UserId(current_user_id.map(UserId::into_id)),
         article_db::Filter {
             slug: None,
             tag: query.tag.as_deref(),
@@ -110,17 +110,17 @@ pub struct FeedArticlesQuery {
 #[entrait(pub FeedArticles)]
 async fn feed_articles(
     deps: &impl article_db::SelectArticles,
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     query: FeedArticlesQuery,
 ) -> RwResult<Vec<Article>> {
     deps.select_articles(
-        user_id.some(),
+        current_user_id.some(),
         article_db::Filter {
             slug: None,
             tag: None,
             author: None,
             favorited_by: None,
-            followed_by: Some(user_id),
+            followed_by: Some(current_user_id),
             limit: query.limit,
             offset: query.offset,
         },
@@ -132,11 +132,11 @@ async fn feed_articles(
 #[entrait(pub GetArticle)]
 async fn get_article(
     deps: &impl article_db::SelectArticles,
-    MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
+    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
     slug: &str,
 ) -> RwResult<Article> {
     deps.select_articles(
-        UserId(opt_user_id.map(UserId::into_id)),
+        UserId(current_user_id.map(UserId::into_id)),
         article_db::Filter {
             slug: Some(&slug),
             ..Default::default()
@@ -152,12 +152,12 @@ async fn get_article(
 #[entrait(pub CreateArticle)]
 async fn create_article(
     deps: &impl article_db::InsertArticle,
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     article: ArticleCreate,
 ) -> RwResult<Article> {
     let slug = slugify(&article.title);
     deps.insert_article(
-        user_id,
+        current_user_id,
         &slug,
         &article.title,
         &article.description,
@@ -171,14 +171,14 @@ async fn create_article(
 #[entrait(pub UpdateArticle)]
 async fn update_article(
     deps: &(impl article_db::UpdateArticle + article_db::SelectArticles),
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
     update: ArticleUpdate,
 ) -> RwResult<Article> {
     let new_slug = update.title.as_deref().map(slugify);
 
     deps.update_article(
-        user_id.clone(),
+        current_user_id.clone(),
         slug,
         article_db::ArticleUpdate {
             slug: new_slug.as_deref(),
@@ -189,36 +189,37 @@ async fn update_article(
     )
     .await?;
 
-    get_single_article(deps, user_id, new_slug.as_deref().unwrap_or(slug)).await
+    get_single_article(deps, current_user_id, new_slug.as_deref().unwrap_or(slug)).await
 }
 
 #[entrait(pub DeleteArticle)]
 async fn delete_article(
     deps: &impl article_db::DeleteArticle,
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
 ) -> RwResult<()> {
-    deps.delete_article(user_id, slug).await
+    deps.delete_article(current_user_id, slug).await
 }
 
 #[entrait(pub FavoriteArticle)]
 async fn favorite_article(
     deps: &(impl article_db::FavoriteArticle + article_db::SelectArticles),
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
 ) -> RwResult<Article> {
-    deps.favorite_article(user_id.clone(), slug).await?;
-    get_single_article(deps, user_id, slug).await
+    deps.favorite_article(current_user_id.clone(), slug).await?;
+    get_single_article(deps, current_user_id, slug).await
 }
 
 #[entrait(pub UnfavoriteArticle)]
 async fn unfavorite_article(
     deps: &(impl article_db::UnfavoriteArticle + article_db::SelectArticles),
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
 ) -> RwResult<Article> {
-    deps.unfavorite_article(user_id.clone(), slug).await?;
-    get_single_article(deps, user_id, slug).await
+    deps.unfavorite_article(current_user_id.clone(), slug)
+        .await?;
+    get_single_article(deps, current_user_id, slug).await
 }
 
 async fn get_single_article(

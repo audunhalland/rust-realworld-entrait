@@ -2,7 +2,7 @@ pub mod auth;
 pub mod password;
 pub mod profile;
 
-use auth::Authenticated;
+use auth::{Authenticated, MaybeAuthenticated};
 
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
@@ -49,46 +49,46 @@ async fn create_user(
 ) -> RwResult<SignedUser> {
     let password_hash = deps.hash_password(new_user.password).await?;
 
-    let db_user = deps
-        .insert_user(new_user.username, new_user.email, password_hash)
+    let (db_user, credentials) = deps
+        .insert_user(&new_user.username, &new_user.email, password_hash)
         .await?;
 
-    Ok(sign_db_user(deps, db_user))
+    Ok(sign_db_user(deps, db_user, credentials.email))
 }
 
 #[entrait(pub Login)]
 async fn login(
-    deps: &(impl user_db::FindUserByEmail + password::VerifyPassword + auth::SignUserId),
+    deps: &(impl user_db::FindUserCredentialsByEmail + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> RwResult<SignedUser> {
-    let (db_user, password_hash) = deps
-        .find_user_by_email(login_user.email)
+    let (db_user, credentials) = deps
+        .find_user_credentials_by_email(&login_user.email)
         .await?
         .ok_or(RwError::EmailDoesNotExist)?;
 
-    deps.verify_password(login_user.password, password_hash)
+    deps.verify_password(login_user.password, credentials.password_hash)
         .await?;
 
-    Ok(sign_db_user(deps, db_user))
+    Ok(sign_db_user(deps, db_user, credentials.email))
 }
 
 #[entrait(pub FetchCurrentUser)]
 async fn fetch_current_user(
-    deps: &(impl user_db::FindUserById + auth::SignUserId),
-    Authenticated(user_id): Authenticated<UserId>,
+    deps: &(impl user_db::FindUserCredentialsById + auth::SignUserId),
+    Authenticated(current_user_id): Authenticated<UserId>,
 ) -> RwResult<SignedUser> {
-    let (db_user, _) = deps
-        .find_user_by_id(user_id)
+    let (db_user, credentials) = deps
+        .find_user_credentials_by_id(current_user_id)
         .await?
         .ok_or(RwError::CurrentUserDoesNotExist)?;
 
-    Ok(sign_db_user(deps, db_user))
+    Ok(sign_db_user(deps, db_user, credentials.email))
 }
 
 #[entrait(pub UpdateUser)]
 async fn update_user(
     deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
-    Authenticated(user_id): Authenticated<UserId>,
+    Authenticated(current_user_id): Authenticated<UserId>,
     update: UserUpdate,
 ) -> RwResult<SignedUser> {
     let password_hash = if let Some(password) = &update.password {
@@ -97,25 +97,25 @@ async fn update_user(
         None
     };
 
-    Ok(sign_db_user(
-        deps,
-        deps.update_user(
-            user_id,
+    let (user, credentials) = deps
+        .update_user(
+            current_user_id,
             user_db::UserUpdate {
-                username: update.username,
-                email: update.email,
+                username: update.username.as_deref(),
+                email: update.email.as_deref(),
                 password_hash,
-                bio: update.bio,
-                image: update.image,
+                bio: update.bio.as_deref(),
+                image: update.image.as_deref(),
             },
         )
-        .await?,
-    ))
+        .await?;
+
+    Ok(sign_db_user(deps, user, credentials.email))
 }
 
-fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User) -> SignedUser {
+fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User, email: String) -> SignedUser {
     SignedUser {
-        email: db_user.email,
+        email,
         token: deps.sign_user_id(db_user.user_id),
         username: db_user.username,
         bio: db_user.bio,
@@ -123,9 +123,23 @@ fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User) -> SignedU
     }
 }
 
-#[entrait(pub GetUserProfile)]
-async fn get_user_profile(_: &impl auth::SignUserId) -> RwResult<profile::Profile> {
-    panic!()
+#[entrait(pub FetchUserProfile)]
+async fn fetch_user_profile(
+    deps: &impl user_db::FindUserByUsername,
+    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    username: &str,
+) -> RwResult<profile::Profile> {
+    let (user, following) = deps
+        .find_user_by_username(UserId(current_user_id.map(UserId::into_id)), username)
+        .await?
+        .ok_or(RwError::ProfileNotFound)?;
+
+    Ok(profile::Profile {
+        username: user.username,
+        bio: user.bio,
+        image: user.image,
+        following: following.0,
+    })
 }
 
 #[cfg(test)]
@@ -165,14 +179,19 @@ mod tests {
                 .next_call(matching!(
                     ("Name", "name@email.com", PasswordHash(hash)) if hash == "h4sh"
                 ))
-                .answers(|(username, email, _)| {
-                    Ok(user_db::User {
-                        user_id: test_user_id(),
-                        username,
-                        email,
-                        bio: "".to_string(),
-                        image: None,
-                    })
+                .answers(|(username, email, hash)| {
+                    Ok((
+                        user_db::User {
+                            user_id: test_user_id(),
+                            username: username.to_string(),
+                            bio: "".to_string(),
+                            image: None,
+                        },
+                        user_db::Credentials {
+                            email: email.to_string(),
+                            password_hash: hash,
+                        },
+                    ))
                 })
                 .once()
                 .in_order(),
@@ -195,18 +214,20 @@ mod tests {
             password: "password".to_string(),
         };
         let deps = mock([
-            user_db::find_user_by_email::Fn
+            user_db::find_user_credentials_by_email::Fn
                 .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
                         user_db::User {
                             user_id: test_user_id(),
                             username: "Name".into(),
-                            email,
                             bio: "".to_string(),
                             image: None,
                         },
-                        PasswordHash("h4sh".into()),
+                        user_db::Credentials {
+                            email: email.to_string(),
+                            password_hash: PasswordHash("h4sh".into()),
+                        },
                     )))
                 })
                 .once()

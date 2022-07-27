@@ -132,16 +132,22 @@ mod tests {
     async fn integration_test_create_user() {
         let deps = spy([
             user_db::insert_user::Fn.stub(|each| {
-                each.call(matching!("username", "email", _))
-                    .answers(|(username, email, _)| {
-                        Ok(user_db::User {
-                            user_id: UserId(test_uuid()),
-                            username,
-                            email,
-                            bio: "bio".to_string(),
-                            image: None,
-                        })
-                    });
+                each.call(matching!("username", "email", _)).answers(
+                    |(username, email, password_hash)| {
+                        Ok((
+                            user_db::User {
+                                user_id: UserId(test_uuid()),
+                                username: username.to_string(),
+                                bio: "bio".to_string(),
+                                image: None,
+                            },
+                            user_db::Credentials {
+                                email: email.to_string(),
+                                password_hash,
+                            },
+                        ))
+                    },
+                );
             }),
             realworld_core::test::mock_system_and_config(),
         ]);

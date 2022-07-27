@@ -43,7 +43,7 @@ pub struct Filter<'a> {
 #[entrait(pub SelectArticles)]
 async fn select_articles(
     deps: &impl GetDb,
-    user: UserId<Option<Uuid>>,
+    current_user: UserId<Option<Uuid>>,
     filter: Filter<'_>,
 ) -> RwResult<Vec<Article>> {
     let articles: Vec<Article> = sqlx::query_as!(
@@ -102,7 +102,7 @@ async fn select_articles(
             LIMIT $7
             OFFSET $8
         "#,
-        user.0,
+        current_user.0,
         filter.slug,
         filter.tag,
         filter.author,
@@ -340,10 +340,10 @@ mod tests {
     #[entrait(SelectSingleWithUser, unimock = false)]
     async fn select_single_with_user(
         db: &impl SelectArticles,
-        user: UserId<Option<Uuid>>,
+        current_user: UserId<Option<Uuid>>,
         filter: Filter<'_>,
     ) -> Article {
-        db.select_articles(user, filter)
+        db.select_articles(current_user, filter)
             .await
             .unwrap()
             .into_iter()
@@ -368,7 +368,7 @@ mod tests {
     #[tokio::test]
     async fn article_lifecycle_should_work() {
         let db = create_test_db().await;
-        let user = db.insert_test_user(Default::default()).await.unwrap();
+        let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
 
         let inserted_article = db
             .insert_article(
@@ -455,8 +455,8 @@ mod tests {
     #[tokio::test]
     async fn should_filter_articles() {
         let db = create_test_db().await;
-        let user1 = db.insert_test_user(Default::default()).await.unwrap();
-        let user2 = db
+        let (user1, _) = db.insert_test_user(Default::default()).await.unwrap();
+        let (user2, _) = db
             .insert_test_user(user_db_test::other_user())
             .await
             .unwrap();
@@ -563,7 +563,7 @@ mod tests {
     #[tokio::test]
     async fn updating_article_with_wrong_owner_should_yield_forbidden() {
         let db = create_test_db().await;
-        let user = db.insert_test_user(Default::default()).await.unwrap();
+        let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
 
         db.insert_article(
             user.user_id,
