@@ -13,6 +13,9 @@ pub enum RwError {
     #[error("authentication required")]
     Unauthorized,
 
+    #[error("forbidden")]
+    Forbidden,
+
     #[error("user does not exist")]
     CurrentUserDoesNotExist,
 
@@ -42,6 +45,7 @@ impl RwError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Forbidden => StatusCode::FORBIDDEN,
             Self::CurrentUserDoesNotExist => StatusCode::NOT_FOUND,
             Self::EmailDoesNotExist => StatusCode::UNPROCESSABLE_ENTITY,
             Self::UsernameTaken => StatusCode::UNPROCESSABLE_ENTITY,
@@ -64,6 +68,7 @@ impl axum::response::IntoResponse for RwError {
                 self.to_string(),
             )
                 .into_response(),
+            Self::Forbidden => (self.status_code(), ()).into_response(),
             Self::CurrentUserDoesNotExist => (self.status_code(), ()).into_response(),
             Self::EmailDoesNotExist => {
                 unprocessable_entity_with_errors([("email".into(), vec!["does not exist".into()])])

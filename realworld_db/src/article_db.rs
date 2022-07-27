@@ -160,6 +160,63 @@ async fn insert_article(
     Ok(article)
 }
 
+#[derive(Default)]
+pub struct ArticleUpdate<'a> {
+    pub slug: Option<&'a str>,
+    pub title: Option<&'a str>,
+    pub description: Option<&'a str>,
+    pub body: Option<&'a str>,
+}
+
+#[entrait(pub UpdateArticle)]
+async fn update_article(
+    deps: &impl GetDb,
+    UserId(user_id): UserId,
+    slug: &str,
+    update: ArticleUpdate<'_>,
+) -> RwResult<()> {
+    let mut tx = deps.get_db().pg_pool.begin().await?;
+
+    let article_meta = sqlx::query!(
+        // This locks the `article` row for the duration of the transaction so we're
+        // not interleaving this with other possible updates.
+        "SELECT article_id, user_id FROM app.article WHERE slug = $1 FOR UPDATE",
+        slug
+    )
+    .fetch_optional(&mut tx)
+    .await?
+    .ok_or(RwError::ArticleNotFound)?;
+
+    if article_meta.user_id != user_id {
+        return Err(RwError::Forbidden);
+    }
+
+    sqlx::query!(
+        // language=PostgreSQL
+        r#"
+            UPDATE app.article
+            SET
+                slug = COALESCE($1, slug),
+                title = COALESCE($2, title),
+                description = COALESCE($3, description),
+                body = COALESCE($4, body)
+            WHERE article_id = $5
+        "#,
+        update.slug,
+        update.title,
+        update.description,
+        update.body,
+        article_meta.article_id
+    )
+    .execute(&mut tx)
+    .await?;
+
+    // Mustn't forget this!
+    tx.commit().await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,6 +225,8 @@ mod tests {
     use user_db_test::InsertTestUser;
 
     use realworld_core::iter_util::Single;
+
+    use assert_matches::*;
 
     #[entrait(SelectSingle, unimock = false)]
     async fn select_single(db: &impl SelectArticles, filter: Filter<'_>) -> Article {
@@ -194,21 +253,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_insert_and_fetch_and_list_article() {
+    async fn should_insert_and_update_and_fetch_and_list_article() {
         let db = create_test_db().await;
         let user = db.insert_test_user(Default::default()).await.unwrap();
 
-        let inserted_article = insert_article(
-            &db,
-            UserId(user.id),
-            "slug",
-            "title",
-            "desc",
-            "body",
-            &["tag".to_string()],
-        )
-        .await
-        .unwrap();
+        let inserted_article = db
+            .insert_article(
+                UserId(user.id),
+                "slug",
+                "title",
+                "desc",
+                "body",
+                &["tag".to_string()],
+            )
+            .await
+            .unwrap();
 
         let fetched_article = db
             .select_single_with_user(
@@ -236,6 +295,34 @@ mod tests {
         assert_eq!(inserted_article.author_bio, user.bio);
         assert_eq!(inserted_article.author_image, user.image);
         assert_eq!(inserted_article.following_author, false);
+
+        db.update_article(
+            UserId(user.id),
+            "slug",
+            ArticleUpdate {
+                slug: Some("slug2"),
+                title: Some("title2"),
+                description: Some("desc2"),
+                body: Some("body2"),
+            },
+        )
+        .await
+        .unwrap();
+
+        let modified_article = db
+            .select_single_with_user(
+                UserId(Some(user.id)),
+                Filter {
+                    slug: Some("slug2"),
+                    ..Default::default()
+                },
+            )
+            .await;
+
+        assert_eq!(modified_article.slug, "slug2");
+        assert_eq!(modified_article.title, "title2");
+        assert_eq!(modified_article.description, "desc2");
+        assert_eq!(modified_article.body, "body2");
     }
 
     #[tokio::test]
@@ -325,5 +412,28 @@ mod tests {
             .len(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn updating_article_with_wrong_owner_should_yield_forbidden() {
+        let db = create_test_db().await;
+        let user = db.insert_test_user(Default::default()).await.unwrap();
+
+        db.insert_article(
+            UserId(user.id),
+            "slug",
+            "title",
+            "desc",
+            "body",
+            &["tag".to_string()],
+        )
+        .await
+        .unwrap();
+
+        let error = db
+            .update_article(UserId(Uuid::new_v4()), "slug", Default::default())
+            .await
+            .expect_err("Should error");
+        assert_matches!(error, RwError::Forbidden);
     }
 }

@@ -144,13 +144,38 @@ pub async fn create_article(
 }
 
 #[entrait(pub UpdateArticle)]
-pub async fn update_article<D>(
-    _: &D,
+pub async fn update_article(
+    deps: &(impl article_db::UpdateArticle + article_db::SelectArticles),
     Authenticated(user_id): Authenticated<UserId>,
     slug: &str,
-    article: ArticleUpdate,
+    update: ArticleUpdate,
 ) -> RwResult<Article> {
-    todo!()
+    let new_slug = update.title.as_deref().map(slugify);
+
+    deps.update_article(
+        user_id.clone(),
+        slug,
+        article_db::ArticleUpdate {
+            slug: new_slug.as_deref(),
+            title: update.title.as_deref(),
+            description: update.description.as_deref(),
+            body: update.body.as_deref(),
+        },
+    )
+    .await?;
+
+    Ok(deps
+        .select_articles(
+            UserId(Some(user_id.0)),
+            article_db::Filter {
+                slug: Some(new_slug.as_deref().unwrap_or(slug)),
+                ..Default::default()
+            },
+        )
+        .await?
+        .into_iter()
+        .single()?
+        .into())
 }
 
 #[entrait(pub DeleteArticle)]
@@ -277,5 +302,42 @@ mod tests {
             get_article(&deps, MaybeAuthenticated(None), "slug").await,
             Err(RwError::ArticleNotFound)
         );
+    }
+
+    #[tokio::test]
+    async fn update_article_should_update_slug() {
+        let deps = mock([
+            article_db::update_article::Fn
+                .next_call(matching!(
+                    UserId(_),
+                    "slug",
+                    article_db::ArticleUpdate {
+                        slug: Some("new-title"),
+                        title: Some("New Title"),
+                        description: Some("New desc"),
+                        body: Some("New body")
+                    }
+                ))
+                .answers(|_| Ok(()))
+                .once()
+                .in_order(),
+            article_db::select_articles::Fn
+                .next_call(matching!(_, _))
+                .answers(|_| Ok(vec![test_db_article()]))
+                .once()
+                .in_order(),
+        ]);
+        update_article(
+            &deps,
+            Authenticated(UserId(uuid::Uuid::new_v4())),
+            "slug",
+            ArticleUpdate {
+                title: Some("New Title".to_string()),
+                description: Some("New desc".to_string()),
+                body: Some("New body".to_string()),
+            },
+        )
+        .await
+        .unwrap();
     }
 }
