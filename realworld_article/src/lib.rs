@@ -190,10 +190,47 @@ async fn update_article(
     )
     .await?;
 
+    get_single_article(deps, user_id, new_slug.as_deref().unwrap_or(slug)).await
+}
+
+#[entrait(pub DeleteArticle)]
+async fn delete_article(
+    deps: &impl article_db::DeleteArticle,
+    Authenticated(user_id): Authenticated<UserId>,
+    slug: &str,
+) -> RwResult<()> {
+    deps.delete_article(user_id, slug).await
+}
+
+#[entrait(pub FavoriteArticle)]
+async fn favorite_article(
+    deps: &(impl article_db::FavoriteArticle + article_db::SelectArticles),
+    Authenticated(user_id): Authenticated<UserId>,
+    slug: &str,
+) -> RwResult<Article> {
+    deps.favorite_article(user_id.clone(), slug).await?;
+    get_single_article(deps, user_id, slug).await
+}
+
+#[entrait(pub UnfavoriteArticle)]
+async fn unfavorite_article(
+    deps: &(impl article_db::UnfavoriteArticle + article_db::SelectArticles),
+    Authenticated(user_id): Authenticated<UserId>,
+    slug: &str,
+) -> RwResult<Article> {
+    deps.unfavorite_article(user_id.clone(), slug).await?;
+    get_single_article(deps, user_id, slug).await
+}
+
+async fn get_single_article(
+    deps: &impl article_db::SelectArticles,
+    user_id: UserId,
+    slug: &str,
+) -> RwResult<Article> {
     deps.select_articles(
         UserId(Some(user_id.0)),
         article_db::Filter {
-            slug: Some(new_slug.as_deref().unwrap_or(slug)),
+            slug: Some(slug),
             ..Default::default()
         },
     )
@@ -201,33 +238,6 @@ async fn update_article(
     .into_iter()
     .single()
     .map(Into::into)
-}
-
-#[entrait(pub DeleteArticle)]
-async fn delete_article(
-    deps: &impl article_db::DeleteArticle,
-    Authenticated(user_id): Authenticated<UserId>,
-    slug: String,
-) -> RwResult<()> {
-    deps.delete_article(user_id, &slug).await
-}
-
-#[entrait(pub FavoriteArticle)]
-async fn favorite_article<D>(
-    _: &D,
-    Authenticated(user_id): Authenticated<UserId>,
-    slug: String,
-) -> RwResult<Article> {
-    todo!()
-}
-
-#[entrait(pub UnfavoriteArticle)]
-async fn unfavorite_article<D>(
-    _: &D,
-    Authenticated(user_id): Authenticated<UserId>,
-    slug: String,
-) -> RwResult<Article> {
-    todo!()
 }
 
 fn slugify(string: &str) -> String {

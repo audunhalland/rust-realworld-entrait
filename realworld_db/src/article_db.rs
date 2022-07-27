@@ -61,7 +61,7 @@ async fn select_articles(
                 EXISTS(
                     SELECT 1 FROM app.article_favorite WHERE user_id = $1
                 ) "favorited!",
-                coalesce(
+                COALESCE(
                     (SELECT count(*) FROM app.article_favorite fav WHERE fav.article_id = article.article_id),
                     0
                 ) "favorites_count!",
@@ -82,9 +82,11 @@ async fn select_articles(
             ) AND (
                 $5::text IS NULL OR EXISTS(
                     SELECT 1
-                    FROM app.user
-                    INNER JOIN app.article_favorite af USING (user_id)
-                    WHERE username = $5
+                    FROM app.article_favorite
+                    WHERE
+                        user_id = (SELECT user_id FROM app.user WHERE username = $5)
+                    AND
+                        article_id = article.article_id
                 )
             ) AND (
                 $6::uuid IS NULL OR EXISTS(
@@ -261,6 +263,59 @@ async fn delete_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) 
     }
 }
 
+#[entrait(pub FavoriteArticle)]
+async fn favorite_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
+    sqlx::query_scalar!(
+        r#"
+            WITH selected_article AS (
+                SELECT article_id FROM app.article WHERE slug = $1
+            ),
+            inserterted_favorite AS (
+                INSERT INTO app.article_favorite(article_id, user_id)
+                    SELECT article_id, $2 FROM selected_article
+                -- if the article is already favorited
+                ON CONFLICT DO NOTHING
+            )
+            SELECT article_id FROM selected_article
+        "#,
+        slug,
+        user_id
+    )
+    .fetch_optional(&deps.get_db().pg_pool)
+    .await?
+    .ok_or(RwError::ArticleNotFound)?;
+
+    Ok(())
+}
+
+#[entrait(pub UnfavoriteArticle)]
+async fn unfavorite_article(
+    deps: &impl GetDb,
+    UserId(user_id): UserId,
+    slug: &str,
+) -> RwResult<()> {
+    sqlx::query_scalar!(
+        r#"
+            WITH selected_article AS (
+                SELECT article_id FROM app.article WHERE slug = $1
+            ),
+            deleted_favorite AS (
+                DELETE FROM app.article_favorite
+                WHERE article_id = (SELECT article_id from selected_article)
+                AND user_id = $2
+            )
+            SELECT article_id FROM selected_article
+        "#,
+        slug,
+        user_id
+    )
+    .fetch_optional(&deps.get_db().pg_pool)
+    .await?
+    .ok_or(RwError::ArticleNotFound)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,6 +349,20 @@ mod tests {
             .into_iter()
             .single()
             .unwrap()
+    }
+
+    #[entrait(SelectSingleSlugOrNone, unimock = false)]
+    async fn select_single_slug_or_none(
+        db: &impl SelectArticles,
+        filter: Filter<'_>,
+    ) -> Option<String> {
+        db.select_articles(UserId(None), filter)
+            .await
+            .unwrap()
+            .into_iter()
+            .single_or_none()
+            .unwrap()
+            .map(|article| article.slug)
     }
 
     #[tokio::test]
@@ -415,59 +484,67 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            db.select_single(Filter {
+            Some("slug1"),
+            db.select_single_slug_or_none(Filter {
                 slug: Some("slug1"),
                 ..Default::default()
             })
             .await
-            .slug,
-            "slug1"
+            .as_deref()
         );
 
         assert_eq!(
-            db.select_single(Filter {
+            Some("slug1"),
+            db.select_single_slug_or_none(Filter {
                 tag: Some("tag1"),
                 ..Default::default()
             })
             .await
-            .slug,
-            "slug1"
+            .as_deref()
         );
 
         assert_eq!(
-            db.select_single(Filter {
+            Some("slug1"),
+            db.select_single_slug_or_none(Filter {
                 author: Some(&user1.username),
                 ..Default::default()
             })
             .await
-            .slug,
-            "slug1"
+            .as_deref(),
         );
 
         assert_eq!(
-            db.select_articles(
-                UserId(None),
-                Filter {
-                    favorited_by: Some(&user1.username),
-                    ..Default::default()
-                }
-            )
+            None,
+            db.select_single_slug_or_none(Filter {
+                favorited_by: Some(&user1.username),
+                ..Default::default()
+            })
             .await
-            .unwrap(),
-            &[]
+            .as_deref(),
+        );
+
+        db.favorite_article(UserId(user1.id), "slug1")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            Some("slug1"),
+            db.select_single_slug_or_none(Filter {
+                favorited_by: Some(&user1.username),
+                ..Default::default()
+            })
+            .await
+            .as_deref()
         );
 
         assert_eq!(
-            db.select_articles(
-                UserId(None),
-                Filter {
-                    followed_by: Some(UserId(user1.id)),
-                    ..Default::default()
-                }
-            )
+            None,
+            db.select_single_slug_or_none(Filter {
+                followed_by: Some(UserId(user1.id)),
+                ..Default::default()
+            })
             .await
-            .unwrap(),
-            &[]
+            .as_deref()
         );
 
         assert_eq!(

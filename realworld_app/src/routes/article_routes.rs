@@ -117,7 +117,7 @@ where
         Path(slug): Path<String>,
     ) -> RwResult<()> {
         let user = app.authenticate(token)?;
-        app.delete_article(user, slug).await?;
+        app.delete_article(user, &slug).await?;
         Ok(())
     }
 
@@ -128,7 +128,7 @@ where
     ) -> RwResult<Json<ArticleBody>> {
         let user = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.favorite_article(user, slug).await?,
+            article: app.favorite_article(user, &slug).await?,
         }))
     }
 
@@ -139,7 +139,7 @@ where
     ) -> RwResult<Json<ArticleBody>> {
         let user = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.unfavorite_article(user, slug).await?,
+            article: app.unfavorite_article(user, &slug).await?,
         }))
     }
 }

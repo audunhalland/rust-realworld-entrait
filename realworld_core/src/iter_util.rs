@@ -20,7 +20,7 @@ impl<I: Iterator> Single for I {
         match (self.next(), self.next()) {
             (Some(item), None) => Ok(item),
             (None, _) => Err(anyhow!("Expected a single item, got none").into()),
-            (Some(_), Some(_)) => Err(anyhow!("Expected a single itme, get more than one").into()),
+            (Some(_), Some(_)) => Err(anyhow!("Expected a single itme, got more than one").into()),
         }
     }
 
@@ -28,7 +28,7 @@ impl<I: Iterator> Single for I {
         match (self.next(), self.next()) {
             (None, None) => Ok(None),
             (Some(item), None) => Ok(Some(item)),
-            (_, Some(_)) => Err(anyhow!("Expected a single itme, get more than one").into()),
+            (_, Some(_)) => Err(anyhow!("Expected a single itme, got more than one").into()),
         }
     }
 }
