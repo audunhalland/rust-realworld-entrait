@@ -4,12 +4,16 @@ pub mod error;
 pub mod iter_util;
 pub mod timestamp;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UserId<I = uuid::Uuid>(pub I);
 
 impl<I> UserId<I> {
     pub fn into_id(self) -> I {
         self.0
+    }
+
+    pub fn some(self) -> UserId<Option<I>> {
+        UserId(Some(self.0))
     }
 }
 

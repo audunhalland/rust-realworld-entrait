@@ -116,11 +116,16 @@ async fn update_user(
 fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User) -> SignedUser {
     SignedUser {
         email: db_user.email,
-        token: deps.sign_user_id(UserId(db_user.id)),
+        token: deps.sign_user_id(db_user.user_id),
         username: db_user.username,
         bio: db_user.bio,
         image: db_user.image,
     }
+}
+
+#[entrait(pub GetUserProfile)]
+async fn get_user_profile(_: &impl auth::SignUserId) -> RwResult<profile::Profile> {
+    panic!()
 }
 
 #[cfg(test)]
@@ -135,8 +140,8 @@ mod tests {
         String::from("t3stt0k1")
     }
 
-    fn test_user_id() -> uuid::Uuid {
-        uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap()
+    fn test_user_id() -> UserId {
+        UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap())
     }
 
     pub fn mock_hash_password() -> unimock::Clause {
@@ -162,7 +167,7 @@ mod tests {
                 ))
                 .answers(|(username, email, _)| {
                     Ok(user_db::User {
-                        id: test_user_id(),
+                        user_id: test_user_id(),
                         username,
                         email,
                         bio: "".to_string(),
@@ -195,7 +200,7 @@ mod tests {
                 .answers(|email| {
                     Ok(Some((
                         user_db::User {
-                            id: test_user_id(),
+                            user_id: test_user_id(),
                             username: "Name".into(),
                             email,
                             bio: "".to_string(),

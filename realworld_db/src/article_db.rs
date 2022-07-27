@@ -107,7 +107,7 @@ async fn select_articles(
         filter.tag,
         filter.author,
         filter.favorited_by,
-        filter.followed_by.map(|opt| opt.0),
+        filter.followed_by.map(UserId::into_id),
         filter.limit.unwrap_or(20),
         filter.offset.unwrap_or(0)
     )
@@ -372,7 +372,7 @@ mod tests {
 
         let inserted_article = db
             .insert_article(
-                UserId(user.id),
+                user.user_id,
                 "slug",
                 "title",
                 "desc",
@@ -384,7 +384,7 @@ mod tests {
 
         let fetched_article = db
             .select_single_with_user(
-                UserId(Some(user.id)),
+                user.user_id.some(),
                 Filter {
                     slug: Some("slug"),
                     ..Default::default()
@@ -410,7 +410,7 @@ mod tests {
         assert_eq!(inserted_article.following_author, false);
 
         db.update_article(
-            UserId(user.id),
+            user.user_id,
             "slug",
             ArticleUpdate {
                 slug: Some("slug2"),
@@ -424,7 +424,7 @@ mod tests {
 
         let modified_article = db
             .select_single_with_user(
-                UserId(Some(user.id)),
+                user.user_id.some(),
                 Filter {
                     slug: Some("slug2"),
                     ..Default::default()
@@ -437,7 +437,7 @@ mod tests {
         assert_eq!(modified_article.description, "desc2");
         assert_eq!(modified_article.body, "body2");
 
-        db.delete_article(UserId(user.id), "slug2").await.unwrap();
+        db.delete_article(user.user_id, "slug2").await.unwrap();
 
         assert!(db
             .select_articles(
@@ -462,7 +462,7 @@ mod tests {
             .unwrap();
 
         db.insert_article(
-            UserId(user1.id),
+            user1.user_id,
             "slug1",
             "title1",
             "desc1",
@@ -473,7 +473,7 @@ mod tests {
         .unwrap();
 
         db.insert_article(
-            UserId(user2.id),
+            user2.user_id,
             "slug2",
             "title2",
             "desc2",
@@ -523,9 +523,7 @@ mod tests {
             .as_deref(),
         );
 
-        db.favorite_article(UserId(user1.id), "slug1")
-            .await
-            .unwrap();
+        db.favorite_article(user1.user_id, "slug1").await.unwrap();
 
         assert_eq!(
             Some("slug1"),
@@ -540,7 +538,7 @@ mod tests {
         assert_eq!(
             None,
             db.select_single_slug_or_none(Filter {
-                followed_by: Some(UserId(user1.id)),
+                followed_by: Some(user1.user_id),
                 ..Default::default()
             })
             .await
@@ -568,7 +566,7 @@ mod tests {
         let user = db.insert_test_user(Default::default()).await.unwrap();
 
         db.insert_article(
-            UserId(user.id),
+            user.user_id,
             "slug",
             "title",
             "desc",

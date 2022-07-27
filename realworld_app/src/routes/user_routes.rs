@@ -135,7 +135,7 @@ mod tests {
                 each.call(matching!("username", "email", _))
                     .answers(|(username, email, _)| {
                         Ok(user_db::User {
-                            id: test_uuid(),
+                            user_id: UserId(test_uuid()),
                             username,
                             email,
                             bio: "bio".to_string(),

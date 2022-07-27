@@ -134,6 +134,6 @@ mod tests {
         let Authenticated(result_user_id) =
             authenticate(&deps, Token(format!("Token {token}"))).unwrap();
 
-        assert_eq!(user_id.0, result_user_id.0);
+        assert_eq!(user_id, result_user_id);
     }
 }

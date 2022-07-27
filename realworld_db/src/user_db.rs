@@ -4,11 +4,10 @@ use realworld_core::error::{RwError, RwResult};
 use realworld_core::{PasswordHash, UserId};
 
 use entrait::entrait_export as entrait;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
-    pub id: Uuid,
+    pub user_id: UserId,
     pub username: String,
     pub email: String,
     pub bio: String,
@@ -43,7 +42,7 @@ async fn insert_user(
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
     Ok(User {
-        id,
+        user_id: UserId(id),
         username,
         email,
         bio: "".to_string(),
@@ -66,7 +65,7 @@ async fn find_user_by_id(
     Ok(record.map(|record| {
         (
             User {
-                id: record.user_id,
+                user_id: UserId(record.user_id),
                 username: record.username,
                 email: record.email,
                 bio: record.bio,
@@ -92,7 +91,7 @@ async fn find_user_by_email(
     Ok(record.map(|record| {
         (
             User {
-                id: record.user_id,
+                user_id: UserId(record.user_id),
                 username: record.username,
                 email: record.email,
                 bio: record.bio,
@@ -134,7 +133,7 @@ async fn update_user(
     .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
     Ok(User {
-        id: user_id,
+        user_id: UserId(user_id),
         username: user.username,
         email: user.email,
         bio: user.bio,
@@ -192,7 +191,7 @@ pub mod tests {
         assert_eq!("email", created_user.email);
 
         let (fetched_user, _) = db
-            .find_user_by_id(UserId(created_user.id))
+            .find_user_by_id(created_user.user_id)
             .await
             .unwrap()
             .unwrap();
@@ -235,7 +234,7 @@ pub mod tests {
 
         let updated_user = db
             .update_user(
-                UserId(created_user.id),
+                created_user.user_id,
                 UserUpdate {
                     email: Some("newmail".to_string()),
                     username: Some("newname".to_string()),
@@ -247,7 +246,7 @@ pub mod tests {
             .await
             .unwrap();
 
-        assert_eq!(created_user.id, updated_user.id);
+        assert_eq!(created_user.user_id, updated_user.user_id);
         assert_eq!("newmail", updated_user.email);
         assert_eq!("newname", updated_user.username);
         assert_eq!("newbio", updated_user.bio);
@@ -262,7 +261,7 @@ pub mod tests {
 
         let error = db
             .update_user(
-                UserId(user.id),
+                user.user_id,
                 UserUpdate {
                     username: Some("username".to_string()),
                     ..UserUpdate::default()
@@ -282,7 +281,7 @@ pub mod tests {
 
         let error = db
             .update_user(
-                UserId(user.id),
+                user.user_id,
                 UserUpdate {
                     email: Some("email".to_string()),
                     ..UserUpdate::default()

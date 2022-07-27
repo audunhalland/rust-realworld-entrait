@@ -114,7 +114,7 @@ async fn feed_articles(
     query: FeedArticlesQuery,
 ) -> RwResult<Vec<Article>> {
     deps.select_articles(
-        UserId(Some(user_id.0)),
+        user_id.some(),
         article_db::Filter {
             slug: None,
             tag: None,
@@ -227,7 +227,7 @@ async fn get_single_article(
     slug: &str,
 ) -> RwResult<Article> {
     deps.select_articles(
-        UserId(Some(user_id.0)),
+        user_id.some(),
         article_db::Filter {
             slug: Some(slug),
             ..Default::default()
