@@ -17,19 +17,12 @@ struct MultipleArticlesBody {
     articles: Vec<realworld_article::Article>,
 }
 
-#[derive(serde::Deserialize, Default)]
-#[serde(default)]
-struct FeedArticlesQuery {
-    // See comment on these fields in `ListArticlesQuery` above.
-    limit: Option<i64>,
-    offset: Option<i64>,
-}
-
 pub struct ArticleRoutes<A>(std::marker::PhantomData<A>);
 
 impl<A> ArticleRoutes<A>
 where
     A: realworld_article::ListArticles
+        + realworld_article::FeedArticles
         + realworld_article::GetArticle
         + realworld_article::CreateArticle
         + realworld_article::UpdateArticle
@@ -59,6 +52,7 @@ where
                 "/articles/:slug/favorite",
                 post(Self::favorite_article).delete(Self::unfavorite_article),
             )
+            .route("/articles/feed", get(Self::feed_articles))
     }
 
     async fn list_articles(
@@ -66,9 +60,20 @@ where
         token: Option<Token>,
         Query(query): Query<realworld_article::ListArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        let user_id = token.map(|token| app.authenticate(token)).transpose()?;
+        let opt_user = token.map(|token| app.authenticate(token)).transpose()?;
         Ok(Json(MultipleArticlesBody {
-            articles: app.list_articles(user_id.into(), query).await?,
+            articles: app.list_articles(opt_user.into(), query).await?,
+        }))
+    }
+
+    async fn feed_articles(
+        Extension(app): Extension<A>,
+        token: Token,
+        Query(query): Query<realworld_article::FeedArticlesQuery>,
+    ) -> RwResult<Json<MultipleArticlesBody>> {
+        let user = app.authenticate(token)?;
+        Ok(Json(MultipleArticlesBody {
+            articles: app.feed_articles(user.into(), query).await?,
         }))
     }
 
@@ -77,9 +82,9 @@ where
         token: Option<Token>,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user_id = token.map(|token| app.authenticate(token)).transpose()?;
+        let opt_user = token.map(|token| app.authenticate(token)).transpose()?;
         Ok(Json(ArticleBody {
-            article: app.get_article(user_id.into(), &slug).await?,
+            article: app.get_article(opt_user.into(), &slug).await?,
         }))
     }
 
@@ -100,9 +105,9 @@ where
         Path(slug): Path<String>,
         Json(body): Json<ArticleBody<realworld_article::ArticleUpdate>>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user_id = app.authenticate(token)?;
+        let user = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.update_article(user_id, &slug, body.article).await?,
+            article: app.update_article(user, &slug, body.article).await?,
         }))
     }
 
@@ -111,8 +116,8 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<()> {
-        let user_id = app.authenticate(token)?;
-        app.delete_article(user_id, slug).await?;
+        let user = app.authenticate(token)?;
+        app.delete_article(user, slug).await?;
         Ok(())
     }
 
@@ -121,9 +126,9 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user_id = app.authenticate(token)?;
+        let user = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.favorite_article(user_id, slug).await?,
+            article: app.favorite_article(user, slug).await?,
         }))
     }
 
@@ -132,9 +137,9 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user_id = app.authenticate(token)?;
+        let user = app.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.unfavorite_article(user_id, slug).await?,
+            article: app.unfavorite_article(user, slug).await?,
         }))
     }
 }

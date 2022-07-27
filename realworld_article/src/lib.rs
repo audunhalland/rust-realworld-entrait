@@ -90,7 +90,38 @@ async fn list_articles(
             slug: None,
             tag: query.tag.as_deref(),
             author: query.author.as_deref(),
-            favorited: query.favorited.as_deref(),
+            favorited_by: query.favorited.as_deref(),
+            followed_by: None,
+            limit: query.limit,
+            offset: query.offset,
+        },
+    )
+    .await
+    .map(|articles| articles.into_iter().map(Into::into).collect())
+}
+
+#[derive(serde::Deserialize, Default)]
+#[serde(default)]
+pub struct FeedArticlesQuery {
+    // See comment on these fields in `ListArticlesQuery` above.
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+#[entrait(pub FeedArticles)]
+async fn feed_articles(
+    deps: &impl article_db::SelectArticles,
+    Authenticated(user_id): Authenticated<UserId>,
+    query: FeedArticlesQuery,
+) -> RwResult<Vec<Article>> {
+    deps.select_articles(
+        UserId(Some(user_id.0)),
+        article_db::Filter {
+            slug: None,
+            tag: None,
+            author: None,
+            favorited_by: None,
+            followed_by: Some(user_id),
             limit: query.limit,
             offset: query.offset,
         },

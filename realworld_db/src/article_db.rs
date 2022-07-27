@@ -34,7 +34,8 @@ pub struct Filter<'a> {
     pub slug: Option<&'a str>,
     pub tag: Option<&'a str>,
     pub author: Option<&'a str>,
-    pub favorited: Option<&'a str>,
+    pub favorited_by: Option<&'a str>,
+    pub followed_by: Option<UserId>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
@@ -85,16 +86,26 @@ async fn select_articles(
                     INNER JOIN app.article_favorite af USING (user_id)
                     WHERE username = $5
                 )
+            ) AND (
+                $6::uuid IS NULL OR EXISTS(
+                    SELECT 1
+                    FROM app.follow
+                    WHERE
+                        following_user_id = $6
+                    AND
+                        followed_user_id = author.user_id
+                )
             )
             ORDER BY article.created_at DESC
-            LIMIT $6
-            OFFSET $7
+            LIMIT $7
+            OFFSET $8
         "#,
         user.0,
         filter.slug,
         filter.tag,
         filter.author,
-        filter.favorited,
+        filter.favorited_by,
+        filter.followed_by.map(|opt| opt.0),
         filter.limit.unwrap_or(20),
         filter.offset.unwrap_or(0)
     )
@@ -437,7 +448,20 @@ mod tests {
             db.select_articles(
                 UserId(None),
                 Filter {
-                    favorited: Some(&user1.username),
+                    favorited_by: Some(&user1.username),
+                    ..Default::default()
+                }
+            )
+            .await
+            .unwrap(),
+            &[]
+        );
+
+        assert_eq!(
+            db.select_articles(
+                UserId(None),
+                Filter {
+                    followed_by: Some(UserId(user1.id)),
                     ..Default::default()
                 }
             )
