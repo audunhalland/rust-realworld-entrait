@@ -217,6 +217,39 @@ async fn update_article(
     Ok(())
 }
 
+#[entrait(pub DeleteArticle)]
+async fn delete_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
+    let result = sqlx::query!(
+        // I like to use raw strings for most queries mainly because CLion doesn't try
+        // to escape newlines.
+        // language=PostgreSQL
+        r#"
+            WITH deleted_article AS (
+                DELETE from app.article
+                WHERE slug = $1 AND user_id = $2
+                RETURNING 1
+            )
+            SELECT
+                -- This will be `true` if the article existed before we deleted it.
+                EXISTS(SELECT 1 FROM app.article WHERE slug = $1) "existed!",
+                -- This will only be `true` if we actually deleted the article.
+                EXISTS(SELECT 1 FROM deleted_article) "deleted!"
+        "#,
+        slug,
+        user_id
+    )
+    .fetch_one(&deps.get_db().pg_pool)
+    .await?;
+
+    if result.deleted {
+        Ok(())
+    } else if result.existed {
+        Err(RwError::Forbidden)
+    } else {
+        Err(RwError::ArticleNotFound)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,7 +286,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_insert_and_update_and_fetch_and_list_article() {
+    async fn article_lifecycle_should_work() {
         let db = create_test_db().await;
         let user = db.insert_test_user(Default::default()).await.unwrap();
 
@@ -323,6 +356,20 @@ mod tests {
         assert_eq!(modified_article.title, "title2");
         assert_eq!(modified_article.description, "desc2");
         assert_eq!(modified_article.body, "body2");
+
+        db.delete_article(UserId(user.id), "slug2").await.unwrap();
+
+        assert!(db
+            .select_articles(
+                UserId(None),
+                Filter {
+                    slug: Some("slug2"),
+                    ..Default::default()
+                }
+            )
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]

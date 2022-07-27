@@ -79,7 +79,7 @@ pub struct ListArticlesQuery {
 }
 
 #[entrait(pub ListArticles)]
-pub async fn list_articles(
+async fn list_articles(
     deps: &impl article_db::SelectArticles,
     MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     query: ListArticlesQuery,
@@ -100,7 +100,7 @@ pub async fn list_articles(
 }
 
 #[entrait(pub GetArticle)]
-pub async fn get_article(
+async fn get_article(
     deps: &impl article_db::SelectArticles,
     MaybeAuthenticated(opt_user_id): MaybeAuthenticated<UserId>,
     slug: &str,
@@ -120,7 +120,7 @@ pub async fn get_article(
 }
 
 #[entrait(pub CreateArticle)]
-pub async fn create_article(
+async fn create_article(
     deps: &impl article_db::InsertArticle,
     Authenticated(user_id): Authenticated<UserId>,
     article: ArticleCreate,
@@ -139,7 +139,7 @@ pub async fn create_article(
 }
 
 #[entrait(pub UpdateArticle)]
-pub async fn update_article(
+async fn update_article(
     deps: &(impl article_db::UpdateArticle + article_db::SelectArticles),
     Authenticated(user_id): Authenticated<UserId>,
     slug: &str,
@@ -173,16 +173,16 @@ pub async fn update_article(
 }
 
 #[entrait(pub DeleteArticle)]
-pub async fn delete_article<D>(
-    _: &D,
+async fn delete_article(
+    deps: &impl article_db::DeleteArticle,
     Authenticated(user_id): Authenticated<UserId>,
     slug: String,
 ) -> RwResult<()> {
-    todo!()
+    deps.delete_article(user_id, &slug).await
 }
 
 #[entrait(pub FavoriteArticle)]
-pub async fn favorite_article<D>(
+async fn favorite_article<D>(
     _: &D,
     Authenticated(user_id): Authenticated<UserId>,
     slug: String,
@@ -191,7 +191,7 @@ pub async fn favorite_article<D>(
 }
 
 #[entrait(pub UnfavoriteArticle)]
-pub async fn unfavorite_article<D>(
+async fn unfavorite_article<D>(
     _: &D,
     Authenticated(user_id): Authenticated<UserId>,
     slug: String,
