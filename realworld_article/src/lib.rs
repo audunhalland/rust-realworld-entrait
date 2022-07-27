@@ -77,8 +77,8 @@ pub struct ListArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub ListArticles)]
-async fn list_articles(
+#[entrait(pub List)]
+async fn list(
     deps: &impl article_db::SelectArticles,
     MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
     query: ListArticlesQuery,
@@ -107,8 +107,8 @@ pub struct FeedArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub FeedArticles)]
-async fn feed_articles(
+#[entrait(pub Feed)]
+async fn feed(
     deps: &impl article_db::SelectArticles,
     Authenticated(current_user_id): Authenticated<UserId>,
     query: FeedArticlesQuery,
@@ -129,8 +129,8 @@ async fn feed_articles(
     .map(|articles| articles.into_iter().map(Into::into).collect())
 }
 
-#[entrait(pub GetArticle)]
-async fn get_article(
+#[entrait(pub Fetch)]
+async fn fetch(
     deps: &impl article_db::SelectArticles,
     MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
     slug: &str,
@@ -149,8 +149,8 @@ async fn get_article(
     .ok_or(RwError::ArticleNotFound)
 }
 
-#[entrait(pub CreateArticle)]
-async fn create_article(
+#[entrait(pub Create)]
+async fn create(
     deps: &impl article_db::InsertArticle,
     Authenticated(current_user_id): Authenticated<UserId>,
     article: ArticleCreate,
@@ -168,23 +168,23 @@ async fn create_article(
     .map(Into::into)
 }
 
-#[entrait(pub UpdateArticle)]
-async fn update_article(
+#[entrait(pub Update)]
+async fn update(
     deps: &(impl article_db::UpdateArticle + article_db::SelectArticles),
     Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
-    update: ArticleUpdate,
+    article_update: ArticleUpdate,
 ) -> RwResult<Article> {
-    let new_slug = update.title.as_deref().map(slugify);
+    let new_slug = article_update.title.as_deref().map(slugify);
 
     deps.update_article(
         current_user_id.clone(),
         slug,
         article_db::ArticleUpdate {
             slug: new_slug.as_deref(),
-            title: update.title.as_deref(),
-            description: update.description.as_deref(),
-            body: update.body.as_deref(),
+            title: article_update.title.as_deref(),
+            description: article_update.description.as_deref(),
+            body: article_update.body.as_deref(),
         },
     )
     .await?;
@@ -192,8 +192,8 @@ async fn update_article(
     get_single_article(deps, current_user_id, new_slug.as_deref().unwrap_or(slug)).await
 }
 
-#[entrait(pub DeleteArticle)]
-async fn delete_article(
+#[entrait(pub Delete)]
+async fn delete(
     deps: &impl article_db::DeleteArticle,
     Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
@@ -201,24 +201,21 @@ async fn delete_article(
     deps.delete_article(current_user_id, slug).await
 }
 
-#[entrait(pub FavoriteArticle)]
-async fn favorite_article(
-    deps: &(impl article_db::FavoriteArticle + article_db::SelectArticles),
+#[entrait(pub Favorite)]
+async fn favorite(
+    deps: &(impl article_db::FavoriteArticle
+          + article_db::UnfavoriteArticle
+          + article_db::SelectArticles),
     Authenticated(current_user_id): Authenticated<UserId>,
     slug: &str,
+    value: bool,
 ) -> RwResult<Article> {
-    deps.favorite_article(current_user_id.clone(), slug).await?;
-    get_single_article(deps, current_user_id, slug).await
-}
-
-#[entrait(pub UnfavoriteArticle)]
-async fn unfavorite_article(
-    deps: &(impl article_db::UnfavoriteArticle + article_db::SelectArticles),
-    Authenticated(current_user_id): Authenticated<UserId>,
-    slug: &str,
-) -> RwResult<Article> {
-    deps.unfavorite_article(current_user_id.clone(), slug)
-        .await?;
+    if value {
+        deps.favorite_article(current_user_id.clone(), slug).await?;
+    } else {
+        deps.unfavorite_article(current_user_id.clone(), slug)
+            .await?;
+    }
     get_single_article(deps, current_user_id, slug).await
 }
 
@@ -306,7 +303,7 @@ mod tests {
                 .once()
                 .in_order(),
         ));
-        create_article(
+        create(
             &deps,
             Authenticated(UserId(uuid::Uuid::new_v4())),
             ArticleCreate {
@@ -336,7 +333,7 @@ mod tests {
                 .in_order(),
         ));
         assert_matches!(
-            get_article(&deps, MaybeAuthenticated(None), "slug").await,
+            fetch(&deps, MaybeAuthenticated(None), "slug").await,
             Err(RwError::ArticleNotFound)
         );
     }
@@ -370,7 +367,7 @@ mod tests {
                 .once()
                 .in_order(),
         ]);
-        update_article(
+        update(
             &deps,
             Authenticated(UserId(uuid::Uuid::new_v4())),
             "slug",

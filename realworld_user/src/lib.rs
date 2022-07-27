@@ -42,8 +42,8 @@ pub struct UserUpdate {
     pub image: Option<String>,
 }
 
-#[entrait(pub CreateUser)]
-async fn create_user(
+#[entrait(pub Create)]
+async fn create(
     deps: &(impl password::HashPassword + user_db::InsertUser + auth::SignUserId),
     new_user: NewUser,
 ) -> RwResult<SignedUser> {
@@ -53,7 +53,7 @@ async fn create_user(
         .insert_user(&new_user.username, &new_user.email, password_hash)
         .await?;
 
-    Ok(sign_db_user(deps, db_user, credentials.email))
+    Ok(sign(deps, db_user, credentials.email))
 }
 
 #[entrait(pub Login)]
@@ -69,11 +69,11 @@ async fn login(
     deps.verify_password(login_user.password, credentials.password_hash)
         .await?;
 
-    Ok(sign_db_user(deps, db_user, credentials.email))
+    Ok(sign(deps, db_user, credentials.email))
 }
 
-#[entrait(pub FetchCurrentUser)]
-async fn fetch_current_user(
+#[entrait(pub FetchCurrent)]
+async fn fetch_current(
     deps: &(impl user_db::FindUserCredentialsById + auth::SignUserId),
     Authenticated(current_user_id): Authenticated<UserId>,
 ) -> RwResult<SignedUser> {
@@ -82,16 +82,16 @@ async fn fetch_current_user(
         .await?
         .ok_or(RwError::CurrentUserDoesNotExist)?;
 
-    Ok(sign_db_user(deps, db_user, credentials.email))
+    Ok(sign(deps, db_user, credentials.email))
 }
 
-#[entrait(pub UpdateUser)]
-async fn update_user(
+#[entrait(pub Update)]
+async fn update(
     deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
     Authenticated(current_user_id): Authenticated<UserId>,
-    update: UserUpdate,
+    user_update: UserUpdate,
 ) -> RwResult<SignedUser> {
-    let password_hash = if let Some(password) = &update.password {
+    let password_hash = if let Some(password) = &user_update.password {
         Some(deps.hash_password(password.clone()).await?)
     } else {
         None
@@ -101,19 +101,19 @@ async fn update_user(
         .update_user(
             current_user_id,
             user_db::UserUpdate {
-                username: update.username.as_deref(),
-                email: update.email.as_deref(),
+                username: user_update.username.as_deref(),
+                email: user_update.email.as_deref(),
                 password_hash,
-                bio: update.bio.as_deref(),
-                image: update.image.as_deref(),
+                bio: user_update.bio.as_deref(),
+                image: user_update.image.as_deref(),
             },
         )
         .await?;
 
-    Ok(sign_db_user(deps, user, credentials.email))
+    Ok(sign(deps, user, credentials.email))
 }
 
-fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User, email: String) -> SignedUser {
+fn sign(deps: &impl auth::SignUserId, db_user: user_db::User, email: String) -> SignedUser {
     SignedUser {
         email,
         token: deps.sign_user_id(db_user.user_id),
@@ -123,8 +123,8 @@ fn sign_db_user(deps: &impl auth::SignUserId, db_user: user_db::User, email: Str
     }
 }
 
-#[entrait(pub FetchUserProfile)]
-async fn fetch_user_profile(
+#[entrait(pub FetchProfile)]
+async fn fetch_profile(
     deps: &impl user_db::FindUserByUsername,
     MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
     username: &str,
@@ -140,6 +140,16 @@ async fn fetch_user_profile(
         image: user.image,
         following: following.0,
     })
+}
+
+#[entrait(pub Follow)]
+async fn follow(
+    deps: &impl user_db::FindUserByUsername,
+    Authenticated(current_user_id): Authenticated<UserId>,
+    username: &str,
+    value: bool,
+) -> RwResult<profile::Profile> {
+    panic!()
 }
 
 #[cfg(test)]
@@ -202,7 +212,7 @@ mod tests {
                 .in_order(),
         ]);
 
-        let signed_user = create_user(&deps, new_user).await.unwrap();
+        let signed_user = create(&deps, new_user).await.unwrap();
 
         assert_eq!(signed_user.token, test_token());
     }

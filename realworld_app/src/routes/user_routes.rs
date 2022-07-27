@@ -10,14 +10,14 @@ struct UserBody<T> {
     user: T,
 }
 
-pub struct UserRoutes<A>(std::marker::PhantomData<A>);
+pub struct UserRoutes<D>(std::marker::PhantomData<D>);
 
-impl<A> UserRoutes<A>
+impl<D> UserRoutes<D>
 where
-    A: realworld_user::CreateUser
+    D: realworld_user::Create
         + realworld_user::Login
-        + realworld_user::FetchCurrentUser
-        + realworld_user::UpdateUser
+        + realworld_user::FetchCurrent
+        + realworld_user::Update
         + realworld_user::auth::Authenticate
         + Sized
         + Clone
@@ -33,41 +33,41 @@ where
     }
 
     async fn create(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         Json(body): Json<UserBody<realworld_user::NewUser>>,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         Ok(Json(UserBody {
-            user: app.create_user(body.user).await?,
+            user: deps.create(body.user).await?,
         }))
     }
 
     async fn login(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         Json(body): Json<UserBody<realworld_user::LoginUser>>,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
         Ok(Json(UserBody {
-            user: app.login(body.user).await?,
+            user: deps.login(body.user).await?,
         }))
     }
 
     async fn current_user(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
-        let user_id = app.authenticate(token)?;
+        let user_id = deps.authenticate(token)?;
         Ok(Json(UserBody {
-            user: app.fetch_current_user(user_id).await?,
+            user: deps.fetch_current(user_id).await?,
         }))
     }
 
     async fn update_user(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Json(body): Json<UserBody<realworld_user::UserUpdate>>,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
-        let user_id = app.authenticate(token)?;
+        let user_id = deps.authenticate(token)?;
         Ok(Json(UserBody {
-            user: app.update_user(user_id, body.user).await?,
+            user: deps.update(user_id, body.user).await?,
         }))
     }
 }
@@ -105,7 +105,7 @@ mod tests {
     #[tokio::test]
     async fn unit_test_create_user() {
         let deps = mock(Some(
-            create_user::Fn
+            create::Fn
                 .next_call(matching!(_))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
@@ -195,7 +195,7 @@ mod tests {
                 .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
                 .once()
                 .in_order(),
-            fetch_current_user::Fn
+            fetch_current::Fn
                 .next_call(matching!(
                     (Authenticated(UserId(id))) if id == &test_uuid()
                 ))

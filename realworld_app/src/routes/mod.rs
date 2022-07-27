@@ -1,4 +1,5 @@
 mod article_routes;
+mod profile_routes;
 mod user_routes;
 
 use crate::app::App;
@@ -12,6 +13,7 @@ pub fn api_router() -> axum::Router {
         "/api",
         Router::new()
             .merge(user_routes::UserRoutes::<Impl<App>>::router())
+            .merge(profile_routes::ProfileRoutes::<Impl<App>>::router())
             .merge(article_routes::ArticleRoutes::<Impl<App>>::router()),
     )
 }

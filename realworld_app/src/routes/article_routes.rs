@@ -17,18 +17,17 @@ struct MultipleArticlesBody {
     articles: Vec<realworld_article::Article>,
 }
 
-pub struct ArticleRoutes<A>(std::marker::PhantomData<A>);
+pub struct ArticleRoutes<D>(std::marker::PhantomData<D>);
 
-impl<A> ArticleRoutes<A>
+impl<D> ArticleRoutes<D>
 where
-    A: realworld_article::ListArticles
-        + realworld_article::FeedArticles
-        + realworld_article::GetArticle
-        + realworld_article::CreateArticle
-        + realworld_article::UpdateArticle
-        + realworld_article::DeleteArticle
-        + realworld_article::FavoriteArticle
-        + realworld_article::UnfavoriteArticle
+    D: realworld_article::List
+        + realworld_article::Feed
+        + realworld_article::Fetch
+        + realworld_article::Create
+        + realworld_article::Update
+        + realworld_article::Delete
+        + realworld_article::Favorite
         + auth::Authenticate
         + Sized
         + Clone
@@ -56,90 +55,90 @@ where
     }
 
     async fn list_articles(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Option<Token>,
         Query(query): Query<realworld_article::ListArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        let opt_user = token.map(|token| app.authenticate(token)).transpose()?;
+        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(MultipleArticlesBody {
-            articles: app.list_articles(opt_user.into(), query).await?,
+            articles: deps.list(opt_current_user.into(), query).await?,
         }))
     }
 
     async fn feed_articles(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Query(query): Query<realworld_article::FeedArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        let user = app.authenticate(token)?;
+        let user = deps.authenticate(token)?;
         Ok(Json(MultipleArticlesBody {
-            articles: app.feed_articles(user.into(), query).await?,
+            articles: deps.feed(user.into(), query).await?,
         }))
     }
 
     async fn get_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Option<Token>,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let opt_user = token.map(|token| app.authenticate(token)).transpose()?;
+        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(ArticleBody {
-            article: app.get_article(opt_user.into(), &slug).await?,
+            article: deps.fetch(opt_current_user.into(), &slug).await?,
         }))
     }
 
     async fn create_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Json(body): Json<ArticleBody<realworld_article::ArticleCreate>>,
     ) -> RwResult<Json<ArticleBody<realworld_article::Article>>> {
-        let user_id = app.authenticate(token)?;
+        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.create_article(user_id, body.article).await?,
+            article: deps.create(current_user, body.article).await?,
         }))
     }
 
     async fn update_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Path(slug): Path<String>,
         Json(body): Json<ArticleBody<realworld_article::ArticleUpdate>>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user = app.authenticate(token)?;
+        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.update_article(user, &slug, body.article).await?,
+            article: deps.update(current_user, &slug, body.article).await?,
         }))
     }
 
     async fn delete_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<()> {
-        let user = app.authenticate(token)?;
-        app.delete_article(user, &slug).await?;
+        let current_user = deps.authenticate(token)?;
+        deps.delete(current_user, &slug).await?;
         Ok(())
     }
 
     async fn favorite_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user = app.authenticate(token)?;
+        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.favorite_article(user, &slug).await?,
+            article: deps.favorite(current_user, &slug, true).await?,
         }))
     }
 
     async fn unfavorite_article(
-        Extension(app): Extension<A>,
+        Extension(deps): Extension<D>,
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let user = app.authenticate(token)?;
+        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: app.unfavorite_article(user, &slug).await?,
+            article: deps.favorite(current_user, &slug, false).await?,
         }))
     }
 }
@@ -160,7 +159,7 @@ mod tests {
     #[tokio::test]
     async fn list_articles_should_accept_no_auth() {
         let deps = mock(Some(
-            realworld_article::list_articles::Fn
+            realworld_article::list::Fn
                 .next_call(matching! {
                     (MaybeAuthenticated(None), query) if query == &realworld_article::ListArticlesQuery::default()
                 })
