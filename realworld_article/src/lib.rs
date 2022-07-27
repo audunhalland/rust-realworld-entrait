@@ -1,11 +1,10 @@
-mod profile;
-
 use realworld_core::error::*;
 use realworld_core::iter_util::Single;
 use realworld_core::timestamp::Timestamptz;
 use realworld_core::UserId;
 use realworld_db::article_db;
 use realworld_user::auth::{Authenticated, MaybeAuthenticated};
+use realworld_user::profile::Profile;
 
 use entrait::entrait_export as entrait;
 use itertools::Itertools;
@@ -25,7 +24,7 @@ pub struct Article {
     updated_at: Timestamptz,
     favorited: bool,
     favorites_count: i64,
-    author: profile::Profile,
+    author: Profile,
 }
 
 impl From<article_db::Article> for Article {
@@ -40,7 +39,7 @@ impl From<article_db::Article> for Article {
             updated_at: q.updated_at,
             favorited: q.favorited,
             favorites_count: q.favorites_count,
-            author: profile::Profile {
+            author: Profile {
                 username: q.author_username,
                 bio: q.author_bio,
                 image: q.author_image,

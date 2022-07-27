@@ -1,5 +1,4 @@
-#[derive(serde::Deserialize, serde::Serialize, Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct Profile {
     pub username: String,
     pub bio: String,
