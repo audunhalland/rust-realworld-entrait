@@ -10,18 +10,16 @@ use entrait::entrait_export as entrait;
 async fn hash_password(password: String) -> RwResult<realworld_core::PasswordHash> {
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
-    Ok(
-        tokio::task::spawn_blocking(move || -> RwResult<realworld_core::PasswordHash> {
-            let salt = SaltString::generate(rand::thread_rng());
-            Ok(realworld_core::PasswordHash(
-                argon2::PasswordHash::generate(Argon2::default(), password, salt.as_str())
-                    .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
-                    .to_string(),
-            ))
-        })
-        .await
-        .context("panic when generating password hash")??,
-    )
+    tokio::task::spawn_blocking(move || -> RwResult<realworld_core::PasswordHash> {
+        let salt = SaltString::generate(rand::thread_rng());
+        Ok(realworld_core::PasswordHash(
+            argon2::PasswordHash::generate(Argon2::default(), password, salt.as_str())
+                .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
+                .to_string(),
+        ))
+    })
+    .await
+    .context("panic when generating password hash")?
 }
 
 #[entrait(pub VerifyPassword, no_deps)]

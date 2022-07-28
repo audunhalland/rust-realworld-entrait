@@ -168,7 +168,7 @@ async fn fetch(
     deps.select(
         current_user_id,
         article_db::Filter {
-            slug: Some(&slug),
+            slug: Some(slug),
             ..Default::default()
         },
     )
@@ -210,7 +210,7 @@ async fn update(
     let new_slug = article_update.title.as_deref().map(slugify);
 
     deps.update(
-        current_user_id.clone(),
+        current_user_id,
         slug,
         article_db::ArticleUpdate {
             slug: new_slug.as_deref(),
@@ -246,9 +246,9 @@ async fn favorite(
 ) -> RwResult<Article> {
     let current_user_id = deps.authenticate(token)?;
     if value {
-        deps.insert_favorite(current_user_id.clone(), slug).await?;
+        deps.insert_favorite(current_user_id, slug).await?;
     } else {
-        deps.delete_favorite(current_user_id.clone(), slug).await?;
+        deps.delete_favorite(current_user_id, slug).await?;
     }
     get_single_article(deps, current_user_id, slug).await
 }
@@ -295,11 +295,11 @@ async fn delete_comment(
 
 async fn get_single_article(
     deps: &impl article_db::Select,
-    user_id: UserId,
+    current_user_id: UserId,
     slug: &str,
 ) -> RwResult<Article> {
     deps.select(
-        user_id.some(),
+        current_user_id.some(),
         article_db::Filter {
             slug: Some(slug),
             ..Default::default()
