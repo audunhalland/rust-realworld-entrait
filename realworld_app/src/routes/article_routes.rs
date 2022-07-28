@@ -3,7 +3,7 @@ use realworld_core::error::RwResult;
 use realworld_user::auth::{self, Token};
 
 use axum::extract::{Extension, Path, Query};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::Json;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -17,41 +17,59 @@ struct MultipleArticlesBody {
     articles: Vec<realworld_article::Article>,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+struct CommentBody<T = realworld_article::Comment> {
+    comment: T,
+}
+
+#[derive(serde::Serialize)]
+struct MultipleCommentsBody {
+    comments: Vec<realworld_article::Comment>,
+}
+
+#[derive(serde::Deserialize)]
+struct AddComment {
+    body: String,
+}
+
 pub struct ArticleRoutes<D>(std::marker::PhantomData<D>);
 
-impl<D> ArticleRoutes<D>
+impl<D: Sized + Clone + Send + Sync + 'static> ArticleRoutes<D>
 where
-    D: realworld_article::List
+    D: auth::Authenticate
+        + realworld_article::List
         + realworld_article::Feed
         + realworld_article::Fetch
         + realworld_article::Create
         + realworld_article::Update
         + realworld_article::Delete
         + realworld_article::Favorite
-        + auth::Authenticate
-        + Sized
-        + Clone
-        + Send
-        + Sync
-        + 'static,
+        + realworld_article::ListComments
+        + realworld_article::AddComment
+        + realworld_article::DeleteComment,
 {
     pub fn router() -> axum::Router {
-        axum::Router::new()
-            .route(
-                "/articles",
-                get(Self::list_articles).post(Self::create_article),
-            )
-            .route(
-                "/articles/:slug",
-                get(Self::get_article)
-                    .put(Self::update_article)
-                    .delete(Self::delete_article),
-            )
-            .route(
-                "/articles/:slug/favorite",
-                post(Self::favorite_article).delete(Self::unfavorite_article),
-            )
-            .route("/articles/feed", get(Self::feed_articles))
+        axum::Router::new().nest(
+            "/articles",
+            axum::Router::new()
+                .route("", get(Self::list_articles).post(Self::create_article))
+                .route(
+                    "/:slug",
+                    get(Self::get_article)
+                        .put(Self::update_article)
+                        .delete(Self::delete_article),
+                )
+                .route(
+                    "/:slug/favorite",
+                    post(Self::favorite_article).delete(Self::unfavorite_article),
+                )
+                .route("/feed", get(Self::feed_articles))
+                .route(
+                    "/:slug/comments",
+                    get(Self::list_comments).post(Self::add_comment),
+                )
+                .route("/:slug/comments/:comment_id", delete(Self::delete_comment)),
+        )
     }
 
     async fn list_articles(
@@ -140,6 +158,40 @@ where
         Ok(Json(ArticleBody {
             article: deps.favorite(current_user, &slug, false).await?,
         }))
+    }
+
+    async fn list_comments(
+        Extension(deps): Extension<D>,
+        token: Option<Token>,
+        Path(slug): Path<String>,
+    ) -> RwResult<Json<MultipleCommentsBody>> {
+        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
+        Ok(Json(MultipleCommentsBody {
+            comments: deps.list_comments(opt_current_user.into(), &slug).await?,
+        }))
+    }
+
+    async fn add_comment(
+        Extension(deps): Extension<D>,
+        token: Token,
+        Path(slug): Path<String>,
+        Json(CommentBody { comment }): Json<CommentBody<AddComment>>,
+    ) -> RwResult<Json<CommentBody>> {
+        let current_user = deps.authenticate(token)?;
+        Ok(Json(CommentBody {
+            comment: deps.add_comment(current_user, &slug, &comment.body).await?,
+        }))
+    }
+
+    async fn delete_comment(
+        Extension(deps): Extension<D>,
+        token: Token,
+        Path(slug): Path<String>,
+        Path(comment_id): Path<i64>,
+    ) -> RwResult<()> {
+        let current_user = deps.authenticate(token)?;
+        deps.delete_comment(current_user, &slug, comment_id).await?;
+        Ok(())
     }
 }
 

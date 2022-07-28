@@ -49,6 +49,16 @@ impl From<article_db::Article> for Article {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Comment {
+    id: i64,
+    created_at: Timestamptz,
+    updated_at: Timestamptz,
+    body: String,
+    author: Profile,
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 // The Realworld spec doesn't mention this as an API convention, it just finally shows up
 // when you're looking at the spec for the Article object and see `tagList` as a field name.
@@ -217,6 +227,35 @@ async fn favorite(
             .await?;
     }
     get_single_article(deps, current_user_id, slug).await
+}
+
+#[entrait(pub ListComments)]
+async fn list_comments(
+    deps: &impl article_db::FavoriteArticle,
+    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    slug: &str,
+) -> RwResult<Vec<Comment>> {
+    panic!()
+}
+
+#[entrait(pub AddComment)]
+async fn add_comment(
+    deps: &impl article_db::FavoriteArticle,
+    Authenticated(current_user_id): Authenticated<UserId>,
+    slug: &str,
+    body: &str,
+) -> RwResult<Comment> {
+    panic!()
+}
+
+#[entrait(pub DeleteComment)]
+async fn delete_comment(
+    deps: &impl article_db::FavoriteArticle,
+    Authenticated(current_user_id): Authenticated<UserId>,
+    slug: &str,
+    comment_id: i64,
+) -> RwResult<Comment> {
+    panic!()
 }
 
 async fn get_single_article(
