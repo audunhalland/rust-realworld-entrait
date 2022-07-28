@@ -8,6 +8,7 @@ use futures::TryStreamExt;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+#[cfg_attr(test, derive(Debug, Eq, PartialEq, Clone))]
 pub struct Comment {
     pub comment_id: i64,
     pub created_at: OffsetDateTime,
@@ -140,6 +141,7 @@ async fn delete(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::article_db::FetchId;
     use crate::create_test_db;
     use crate::user_db::tests as user_db_test;
     use user_db_test::InsertTestUser;
@@ -166,6 +168,21 @@ mod tests {
         let db = create_test_db().await;
         let (user, _) = db.insert_test_user(Default::default()).await?;
         db.insert_test_article(user.user_id).await?;
+        let article_id = db.fetch_id("slug").await?;
+
+        let inserted_comment = db.insert(user.user_id, "slug", "body").await?;
+
+        assert_eq!(
+            db.list(user.user_id.some(), article_id).await?,
+            &[inserted_comment.clone()]
+        );
+
+        assert_eq!(db.list(user.user_id.some(), Uuid::new_v4()).await?, &[]);
+
+        db.delete(user.user_id, "slug", inserted_comment.comment_id)
+            .await?;
+
+        assert_eq!(db.list(user.user_id.some(), article_id).await?, &[]);
 
         Ok(())
     }
