@@ -58,7 +58,7 @@ async fn list(
 #[entrait(pub Insert)]
 async fn insert(
     deps: &impl GetDb,
-    current_user: UserId<Uuid>,
+    current_user: UserId,
     article_slug: &str,
     body: &str,
 ) -> RwResult<Comment> {
@@ -98,7 +98,7 @@ async fn insert(
 #[entrait(pub Delete)]
 async fn delete(
     deps: &impl GetDb,
-    current_user: UserId<Uuid>,
+    current_user: UserId,
     article_slug: &str,
     comment_id: i64,
 ) -> RwResult<()> {
@@ -146,7 +146,6 @@ mod tests {
     use crate::user_db::tests as user_db_test;
     use user_db_test::InsertTestUser;
 
-    #[entrait(SelectSingleSlugOrNone, unimock = false)]
     async fn insert_test_article(
         deps: &impl crate::article_db::Insert,
         current_user: UserId,
@@ -167,7 +166,7 @@ mod tests {
     async fn comment_lifecycle() -> RwResult<()> {
         let db = create_test_db().await;
         let (user, _) = db.insert_test_user(Default::default()).await?;
-        db.insert_test_article(user.user_id).await?;
+        insert_test_article(&db, user.user_id).await?;
         let article_id = db.fetch_id("slug").await?;
 
         let inserted_comment = db.insert(user.user_id, "slug", "body").await?;
