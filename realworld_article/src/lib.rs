@@ -284,13 +284,13 @@ async fn add_comment(
 
 #[entrait(pub DeleteComment)]
 async fn delete_comment(
-    deps: &(impl Authenticate + comment_db::List),
+    deps: &(impl Authenticate + comment_db::Delete),
     token: Token,
     slug: &str,
     comment_id: i64,
-) -> RwResult<Comment> {
+) -> RwResult<()> {
     let current_user_id = deps.authenticate(token)?;
-    panic!()
+    deps.delete(current_user_id, slug, comment_id).await
 }
 
 async fn get_single_article(

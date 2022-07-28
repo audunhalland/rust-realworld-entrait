@@ -1,4 +1,3 @@
-use crate::DbResultExt;
 use crate::GetDb;
 
 use realworld_core::error::*;
@@ -93,4 +92,81 @@ async fn insert(
     .ok_or(RwError::ArticleNotFound)?;
 
     Ok(comment)
+}
+
+#[entrait(pub Delete)]
+async fn delete(
+    deps: &impl GetDb,
+    current_user: UserId<Uuid>,
+    article_slug: &str,
+    comment_id: i64,
+) -> RwResult<()> {
+    let result = sqlx::query!(
+        r#"
+            WITH deleted_comment AS (
+                DELETE FROM app.article_comment
+                WHERE
+                    comment_id = $1
+                AND
+                    article_id IN (SELECT article_id FROM app.article WHERE slug = $2)
+                AND
+                    user_id = $3
+                RETURNING 1
+            )
+            SELECT
+                EXISTS(
+                    SELECT 1 FROM app.article_comment
+                    INNER JOIN app.article USING (article_id)
+                    WHERE comment_id = $1 AND slug = $2
+                ) "existed!",
+                EXISTS(SELECT 1 FROM deleted_comment) "deleted!"
+        "#,
+        comment_id,
+        article_slug,
+        current_user.0
+    )
+    .fetch_one(&deps.get_db().pg_pool)
+    .await?;
+
+    if result.deleted {
+        Ok(())
+    } else if result.existed {
+        Err(RwError::Forbidden)
+    } else {
+        Err(RwError::ArticleNotFound)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::create_test_db;
+    use crate::user_db::tests as user_db_test;
+    use user_db_test::InsertTestUser;
+
+    #[entrait(SelectSingleSlugOrNone, unimock = false)]
+    async fn insert_test_article(
+        deps: &impl crate::article_db::Insert,
+        current_user: UserId,
+    ) -> RwResult<()> {
+        deps.insert(
+            current_user,
+            "slug",
+            "title",
+            "desc",
+            "body",
+            &["tag".to_string()],
+        )
+        .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn comment_lifecycle() -> RwResult<()> {
+        let db = create_test_db().await;
+        let (user, _) = db.insert_test_user(Default::default()).await?;
+        db.insert_test_article(user.user_id).await?;
+
+        Ok(())
+    }
 }

@@ -316,27 +316,26 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn should_insert_then_fetch_user() {
+    async fn should_insert_then_fetch_user() -> RwResult<()> {
         let db = create_test_db().await;
-        let (created_user, credentials) =
-            db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let (created_user, credentials) = db.insert_test_user(TestNewUser::default()).await?;
 
         assert_eq!("username", created_user.username);
         assert_eq!("email", credentials.email);
 
         let (fetched_user, fetched_credentials) = db
             .find_user_credentials_by_id(created_user.user_id)
-            .await
-            .unwrap()
+            .await?
             .unwrap();
         assert_eq!(created_user, fetched_user);
         assert_eq!(credentials, fetched_credentials);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_fail_to_create_two_users_with_the_same_username() {
+    async fn should_fail_to_create_two_users_with_the_same_username() -> RwResult<()> {
         let db = create_test_db().await;
-        db.insert_test_user(TestNewUser::default()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await?;
 
         let error = db
             .insert_test_user(TestNewUser::default())
@@ -344,12 +343,13 @@ pub mod tests {
             .expect_err("should error");
 
         assert_matches!(error, RwError::UsernameTaken);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_fail_to_create_two_users_with_the_same_email() {
+    async fn should_fail_to_create_two_users_with_the_same_email() -> RwResult<()> {
         let db = create_test_db().await;
-        db.insert_test_user(TestNewUser::default()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await?;
 
         let error = db
             .insert_test_user(TestNewUser {
@@ -360,12 +360,13 @@ pub mod tests {
             .expect_err("should error");
 
         assert_matches!(error, RwError::EmailTaken);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_update_user() {
+    async fn should_update_user() -> RwResult<()> {
         let db = create_test_db().await;
-        let (created_user, _) = db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let (created_user, _) = db.insert_test_user(TestNewUser::default()).await?;
 
         let (updated_user, updated_credentials) = db
             .update_user(
@@ -378,8 +379,7 @@ pub mod tests {
                     image: Some("newimage"),
                 },
             )
-            .await
-            .unwrap();
+            .await?;
 
         assert_eq!(created_user.user_id, updated_user.user_id);
         assert_eq!("newname", updated_user.username);
@@ -388,13 +388,14 @@ pub mod tests {
 
         assert_eq!("newmail", updated_credentials.email);
         assert_eq!("newhash", updated_credentials.password_hash.0);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_fail_to_update_user_to_taken_username() {
+    async fn should_fail_to_update_user_to_taken_username() -> RwResult<()> {
         let db = create_test_db().await;
-        db.insert_test_user(TestNewUser::default()).await.unwrap();
-        let (user, _) = db.insert_test_user(other_user()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await?;
+        let (user, _) = db.insert_test_user(other_user()).await?;
 
         let error = db
             .update_user(
@@ -408,13 +409,14 @@ pub mod tests {
             .expect_err("should error");
 
         assert_matches!(error, RwError::UsernameTaken);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_fail_to_update_user_to_taken_email() {
+    async fn should_fail_to_update_user_to_taken_email() -> RwResult<()> {
         let db = create_test_db().await;
-        db.insert_test_user(TestNewUser::default()).await.unwrap();
-        let (user, _) = db.insert_test_user(other_user()).await.unwrap();
+        db.insert_test_user(TestNewUser::default()).await?;
+        let (user, _) = db.insert_test_user(other_user()).await?;
 
         let error = db
             .update_user(
@@ -428,30 +430,26 @@ pub mod tests {
             .expect_err("should error");
 
         assert_matches!(error, RwError::EmailTaken);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn following_and_unfollowing_should_work() {
+    async fn following_and_unfollowing_should_work() -> RwResult<()> {
         let db = create_test_db().await;
-        let (user1, _) = db.insert_test_user(TestNewUser::default()).await.unwrap();
-        let (user2, _) = db.insert_test_user(other_user()).await.unwrap();
+        let (user1, _) = db.insert_test_user(TestNewUser::default()).await?;
+        let (user2, _) = db.insert_test_user(other_user()).await?;
 
-        db.insert_follow(user1.user_id, &user2.username)
-            .await
-            .unwrap();
+        db.insert_follow(user1.user_id, &user2.username).await?;
 
         assert_matches!(
             db.find_user_by_username(user1.user_id.some(), &user2.username)
-                .await
-                .unwrap()
+                .await?
                 .unwrap(),
             (_, Following(true))
         );
 
         // Idempotent
-        db.insert_follow(user1.user_id, &user2.username)
-            .await
-            .unwrap();
+        db.insert_follow(user1.user_id, &user2.username).await?;
 
         assert_matches!(
             db.insert_follow(user1.user_id, "unknown")
@@ -467,31 +465,28 @@ pub mod tests {
             RwError::ProfileNotFound
         );
 
-        db.delete_follow(user1.user_id, &user2.username)
-            .await
-            .unwrap();
-        db.delete_follow(user1.user_id, &user2.username)
-            .await
-            .unwrap();
+        db.delete_follow(user1.user_id, &user2.username).await?;
+        db.delete_follow(user1.user_id, &user2.username).await?;
 
         assert_matches!(
             db.find_user_by_username(user1.user_id.some(), &user2.username)
-                .await
-                .unwrap()
+                .await?
                 .unwrap(),
             (_, Following(false))
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn follow_unfollow_user_should_fail_on_invalid_current_user() {
+    async fn follow_unfollow_user_should_fail_on_invalid_current_user() -> RwResult<()> {
         let db = create_test_db().await;
-        let (other_user, _) = db.insert_test_user(TestNewUser::default()).await.unwrap();
+        let (other_user, _) = db.insert_test_user(TestNewUser::default()).await?;
         let err = db
             .insert_follow(UserId(Uuid::new_v4()), &other_user.username)
             .await
             .unwrap_err();
 
         assert_matches!(err, RwError::Sqlx(_));
+        Ok(())
     }
 }

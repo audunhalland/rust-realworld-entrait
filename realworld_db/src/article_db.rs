@@ -361,9 +361,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn article_lifecycle_should_work() {
+    async fn article_lifecycle_should_work() -> RwResult<()> {
         let db = create_test_db().await;
-        let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
+        let (user, _) = db.insert_test_user(Default::default()).await?;
 
         let inserted_article = db
             .insert(
@@ -374,8 +374,7 @@ mod tests {
                 "body",
                 &["tag".to_string()],
             )
-            .await
-            .unwrap();
+            .await?;
 
         let fetched_article = db
             .select_single_with_user(
@@ -414,8 +413,7 @@ mod tests {
                 body: Some("body2"),
             },
         )
-        .await
-        .unwrap();
+        .await?;
 
         let modified_article = db
             .select_single_with_user(
@@ -432,7 +430,7 @@ mod tests {
         assert_eq!(modified_article.description, "desc2");
         assert_eq!(modified_article.body, "body2");
 
-        db.delete(user.user_id, "slug2").await.unwrap();
+        db.delete(user.user_id, "slug2").await?;
 
         assert!(db
             .select(
@@ -442,19 +440,17 @@ mod tests {
                     ..Default::default()
                 }
             )
-            .await
-            .unwrap()
+            .await?
             .is_empty());
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_filter_articles() {
+    async fn should_filter_articles() -> RwResult<()> {
         let db = create_test_db().await;
-        let (user1, _) = db.insert_test_user(Default::default()).await.unwrap();
-        let (user2, _) = db
-            .insert_test_user(user_db_test::other_user())
-            .await
-            .unwrap();
+        let (user1, _) = db.insert_test_user(Default::default()).await?;
+        let (user2, _) = db.insert_test_user(user_db_test::other_user()).await?;
 
         db.insert(
             user1.user_id,
@@ -464,8 +460,7 @@ mod tests {
             "body1",
             &["tag1".to_string()],
         )
-        .await
-        .unwrap();
+        .await?;
 
         db.insert(
             user2.user_id,
@@ -475,8 +470,7 @@ mod tests {
             "body2",
             &["tag2".to_string()],
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(
             Some("slug1"),
@@ -518,7 +512,7 @@ mod tests {
             .as_deref(),
         );
 
-        db.insert_favorite(user1.user_id, "slug1").await.unwrap();
+        db.insert_favorite(user1.user_id, "slug1").await?;
 
         assert_eq!(
             Some("slug1"),
@@ -548,17 +542,18 @@ mod tests {
                     ..Default::default()
                 }
             )
-            .await
-            .unwrap()
+            .await?
             .len(),
             1
         );
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn updating_article_with_wrong_owner_should_yield_forbidden() {
+    async fn updating_article_with_wrong_owner_should_yield_forbidden() -> RwResult<()> {
         let db = create_test_db().await;
-        let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
+        let (user, _) = db.insert_test_user(Default::default()).await?;
 
         db.insert(
             user.user_id,
@@ -568,13 +563,14 @@ mod tests {
             "body",
             &["tag".to_string()],
         )
-        .await
-        .unwrap();
+        .await?;
 
         let error = db
             .update(UserId(Uuid::new_v4()), "slug", Default::default())
             .await
             .expect_err("Should error");
         assert_matches!(error, RwError::Forbidden);
+
+        Ok(())
     }
 }
