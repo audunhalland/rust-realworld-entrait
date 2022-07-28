@@ -40,8 +40,8 @@ pub struct Filter<'a> {
     pub offset: Option<i64>,
 }
 
-#[entrait(pub SelectArticles)]
-async fn select_articles(
+#[entrait(pub Select)]
+async fn select(
     deps: &impl GetDb,
     current_user: UserId<Option<Uuid>>,
     filter: Filter<'_>,
@@ -118,8 +118,20 @@ async fn select_articles(
     Ok(articles)
 }
 
-#[entrait(pub InsertArticle)]
-async fn insert_article(
+#[entrait(pub FetchId)]
+async fn fetch_id(deps: &impl GetDb, slug: &str) -> RwResult<Uuid> {
+    sqlx::query_scalar!(
+        // language=PostgreSQL
+        "SELECT article_id FROM app.article WHERE slug = $1",
+        slug,
+    )
+    .fetch_optional(&deps.get_db().pg_pool)
+    .await?
+    .ok_or(RwError::ArticleNotFound)
+}
+
+#[entrait(pub Insert)]
+async fn insert(
     deps: &impl GetDb,
     UserId(user_id): UserId,
     slug: &str,
@@ -181,12 +193,12 @@ pub struct ArticleUpdate<'a> {
     pub body: Option<&'a str>,
 }
 
-#[entrait(pub UpdateArticle)]
-async fn update_article(
+#[entrait(pub Update)]
+async fn update(
     deps: &impl GetDb,
     UserId(user_id): UserId,
     slug: &str,
-    update: ArticleUpdate<'_>,
+    up: ArticleUpdate<'_>,
 ) -> RwResult<()> {
     let mut tx = deps.get_db().pg_pool.begin().await?;
 
@@ -215,10 +227,10 @@ async fn update_article(
                 body = COALESCE($4, body)
             WHERE article_id = $5
         "#,
-        update.slug,
-        update.title,
-        update.description,
-        update.body,
+        up.slug,
+        up.title,
+        up.description,
+        up.body,
         article_meta.article_id
     )
     .execute(&mut tx)
@@ -230,8 +242,8 @@ async fn update_article(
     Ok(())
 }
 
-#[entrait(pub DeleteArticle)]
-async fn delete_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
+#[entrait(pub Delete)]
+async fn delete(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
     let result = sqlx::query!(
         // I like to use raw strings for most queries mainly because CLion doesn't try
         // to escape newlines.
@@ -263,8 +275,8 @@ async fn delete_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) 
     }
 }
 
-#[entrait(pub FavoriteArticle)]
-async fn favorite_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
+#[entrait(pub InsertFavorite)]
+async fn insert_favorite(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
     sqlx::query_scalar!(
         r#"
             WITH selected_article AS (
@@ -288,12 +300,8 @@ async fn favorite_article(deps: &impl GetDb, UserId(user_id): UserId, slug: &str
     Ok(())
 }
 
-#[entrait(pub UnfavoriteArticle)]
-async fn unfavorite_article(
-    deps: &impl GetDb,
-    UserId(user_id): UserId,
-    slug: &str,
-) -> RwResult<()> {
+#[entrait(pub DeleteFavorite)]
+async fn delete_favorite(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
     sqlx::query_scalar!(
         r#"
             WITH selected_article AS (
@@ -327,23 +335,13 @@ mod tests {
 
     use assert_matches::*;
 
-    #[entrait(SelectSingle, unimock = false)]
-    async fn select_single(db: &impl SelectArticles, filter: Filter<'_>) -> Article {
-        db.select_articles(UserId(None), filter)
-            .await
-            .unwrap()
-            .into_iter()
-            .single()
-            .unwrap()
-    }
-
     #[entrait(SelectSingleWithUser, unimock = false)]
     async fn select_single_with_user(
-        db: &impl SelectArticles,
+        db: &impl Select,
         current_user: UserId<Option<Uuid>>,
         filter: Filter<'_>,
     ) -> Article {
-        db.select_articles(current_user, filter)
+        db.select(current_user, filter)
             .await
             .unwrap()
             .into_iter()
@@ -352,11 +350,8 @@ mod tests {
     }
 
     #[entrait(SelectSingleSlugOrNone, unimock = false)]
-    async fn select_single_slug_or_none(
-        db: &impl SelectArticles,
-        filter: Filter<'_>,
-    ) -> Option<String> {
-        db.select_articles(UserId(None), filter)
+    async fn select_single_slug_or_none(db: &impl Select, filter: Filter<'_>) -> Option<String> {
+        db.select(UserId(None), filter)
             .await
             .unwrap()
             .into_iter()
@@ -371,7 +366,7 @@ mod tests {
         let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
 
         let inserted_article = db
-            .insert_article(
+            .insert(
                 user.user_id,
                 "slug",
                 "title",
@@ -409,7 +404,7 @@ mod tests {
         assert_eq!(inserted_article.author_image, user.image);
         assert_eq!(inserted_article.following_author, false);
 
-        db.update_article(
+        db.update(
             user.user_id,
             "slug",
             ArticleUpdate {
@@ -437,10 +432,10 @@ mod tests {
         assert_eq!(modified_article.description, "desc2");
         assert_eq!(modified_article.body, "body2");
 
-        db.delete_article(user.user_id, "slug2").await.unwrap();
+        db.delete(user.user_id, "slug2").await.unwrap();
 
         assert!(db
-            .select_articles(
+            .select(
                 UserId(None),
                 Filter {
                     slug: Some("slug2"),
@@ -461,7 +456,7 @@ mod tests {
             .await
             .unwrap();
 
-        db.insert_article(
+        db.insert(
             user1.user_id,
             "slug1",
             "title1",
@@ -472,7 +467,7 @@ mod tests {
         .await
         .unwrap();
 
-        db.insert_article(
+        db.insert(
             user2.user_id,
             "slug2",
             "title2",
@@ -523,7 +518,7 @@ mod tests {
             .as_deref(),
         );
 
-        db.favorite_article(user1.user_id, "slug1").await.unwrap();
+        db.insert_favorite(user1.user_id, "slug1").await.unwrap();
 
         assert_eq!(
             Some("slug1"),
@@ -546,7 +541,7 @@ mod tests {
         );
 
         assert_eq!(
-            db.select_articles(
+            db.select(
                 UserId(None),
                 Filter {
                     offset: Some(1),
@@ -565,7 +560,7 @@ mod tests {
         let db = create_test_db().await;
         let (user, _) = db.insert_test_user(Default::default()).await.unwrap();
 
-        db.insert_article(
+        db.insert(
             user.user_id,
             "slug",
             "title",
@@ -577,7 +572,7 @@ mod tests {
         .unwrap();
 
         let error = db
-            .update_article(UserId(Uuid::new_v4()), "slug", Default::default())
+            .update(UserId(Uuid::new_v4()), "slug", Default::default())
             .await
             .expect_err("Should error");
         assert_matches!(error, RwError::Forbidden);
