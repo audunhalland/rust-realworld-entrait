@@ -8,7 +8,6 @@ use realworld_user::auth::*;
 use realworld_user::profile::Profile;
 
 use entrait::entrait_export as entrait;
-use itertools::Itertools;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 #[cfg_attr(test, derive(Debug))]
@@ -272,13 +271,15 @@ async fn list_comments(
 
 #[entrait(pub AddComment)]
 async fn add_comment(
-    deps: &(impl Authenticate + comment_db::List),
+    deps: &(impl Authenticate + comment_db::Insert),
     token: Token,
     slug: &str,
     body: &str,
 ) -> RwResult<Comment> {
     let current_user_id = deps.authenticate(token)?;
-    panic!()
+    deps.insert(current_user_id, slug, body)
+        .await
+        .map(Into::into)
 }
 
 #[entrait(pub DeleteComment)]
@@ -311,6 +312,8 @@ async fn get_single_article(
 }
 
 fn slugify(string: &str) -> String {
+    use itertools::Itertools;
+
     const QUOTE_CHARS: &[char] = &['\'', '"'];
 
     string
