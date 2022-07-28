@@ -1,5 +1,5 @@
 use realworld_core::error::RwResult;
-use realworld_user::auth::{Authenticate, Token};
+use realworld_user::auth::Token;
 
 use axum::extract::{Extension, Path};
 use axum::routing::{get, post};
@@ -16,7 +16,6 @@ impl<D> ProfileRoutes<D>
 where
     D: realworld_user::FetchProfile
         + realworld_user::Follow
-        + Authenticate
         + Sized
         + Clone
         + Send
@@ -37,11 +36,8 @@ where
         token: Option<Token>,
         Path(username): Path<String>,
     ) -> RwResult<Json<ProfileBody>> {
-        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(ProfileBody {
-            profile: deps
-                .fetch_profile(opt_current_user.into(), &username)
-                .await?,
+            profile: deps.fetch_profile(token, &username).await?,
         }))
     }
 
@@ -51,9 +47,7 @@ where
         Path(username): Path<String>,
     ) -> RwResult<Json<ProfileBody>> {
         Ok(Json(ProfileBody {
-            profile: deps
-                .follow(deps.authenticate(token)?, &username, true)
-                .await?,
+            profile: deps.follow(token, &username, true).await?,
         }))
     }
 
@@ -63,9 +57,7 @@ where
         Path(username): Path<String>,
     ) -> RwResult<Json<ProfileBody>> {
         Ok(Json(ProfileBody {
-            profile: deps
-                .follow(deps.authenticate(token)?, &username, false)
-                .await?,
+            profile: deps.follow(token, &username, false).await?,
         }))
     }
 }

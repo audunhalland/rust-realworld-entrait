@@ -18,7 +18,6 @@ where
         + realworld_user::Login
         + realworld_user::FetchCurrent
         + realworld_user::Update
-        + realworld_user::auth::Authenticate
         + Sized
         + Clone
         + Send
@@ -54,9 +53,8 @@ where
         Extension(deps): Extension<D>,
         token: Token,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
-        let user_id = deps.authenticate(token)?;
         Ok(Json(UserBody {
-            user: deps.fetch_current(user_id).await?,
+            user: deps.fetch_current(token).await?,
         }))
     }
 
@@ -65,9 +63,8 @@ where
         token: Token,
         Json(body): Json<UserBody<realworld_user::UserUpdate>>,
     ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
-        let user_id = deps.authenticate(token)?;
         Ok(Json(UserBody {
-            user: deps.update(user_id, body.user).await?,
+            user: deps.update(token, body.user).await?,
         }))
     }
 }
@@ -78,7 +75,6 @@ mod tests {
     use crate::test_util::*;
     use realworld_core::UserId;
     use realworld_db::user_db;
-    use realworld_user::auth::Authenticated;
     use realworld_user::*;
 
     use axum::http::{Request, StatusCode};
@@ -187,22 +183,15 @@ mod tests {
 
     #[tokio::test]
     async fn current_user_should_work() {
-        let deps = mock([
-            auth::authenticate::Fn
-                .next_call(matching!(
-                    (token) if token.token() == "123"
-                ))
-                .answers(|_| Ok(Authenticated(UserId(test_uuid()))))
-                .once()
-                .in_order(),
+        let deps = mock(Some(
             fetch_current::Fn
                 .next_call(matching!(
-                    (Authenticated(UserId(id))) if id == &test_uuid()
+                    (token) if token.token() == "123"
                 ))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),
-        ]);
+        ));
 
         let (status, _) = request_json::<UserBody<realworld_user::SignedUser>>(
             test_router(deps.clone()),

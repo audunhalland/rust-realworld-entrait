@@ -3,7 +3,7 @@ use realworld_core::iter_util::Single;
 use realworld_core::timestamp::Timestamptz;
 use realworld_core::UserId;
 use realworld_db::article_db;
-use realworld_user::auth::{Authenticated, MaybeAuthenticated};
+use realworld_user::auth::*;
 use realworld_user::profile::Profile;
 
 use entrait::entrait_export as entrait;
@@ -89,12 +89,13 @@ pub struct ListArticlesQuery {
 
 #[entrait(pub List)]
 async fn list(
-    deps: &impl article_db::SelectArticles,
-    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    deps: &(impl OptAuthenticate + article_db::SelectArticles),
+    token: Option<Token>,
     query: ListArticlesQuery,
 ) -> RwResult<Vec<Article>> {
+    let current_user_id = deps.opt_authenticate(token)?;
     deps.select_articles(
-        UserId(current_user_id.map(UserId::into_id)),
+        current_user_id,
         article_db::Filter {
             slug: None,
             tag: query.tag.as_deref(),
@@ -119,10 +120,11 @@ pub struct FeedArticlesQuery {
 
 #[entrait(pub Feed)]
 async fn feed(
-    deps: &impl article_db::SelectArticles,
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::SelectArticles),
+    token: Token,
     query: FeedArticlesQuery,
 ) -> RwResult<Vec<Article>> {
+    let current_user_id = deps.authenticate(token)?;
     deps.select_articles(
         current_user_id.some(),
         article_db::Filter {
@@ -141,12 +143,13 @@ async fn feed(
 
 #[entrait(pub Fetch)]
 async fn fetch(
-    deps: &impl article_db::SelectArticles,
-    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    deps: &(impl OptAuthenticate + article_db::SelectArticles),
+    token: Option<Token>,
     slug: &str,
 ) -> RwResult<Article> {
+    let current_user_id = deps.opt_authenticate(token)?;
     deps.select_articles(
-        UserId(current_user_id.map(UserId::into_id)),
+        current_user_id,
         article_db::Filter {
             slug: Some(&slug),
             ..Default::default()
@@ -161,10 +164,11 @@ async fn fetch(
 
 #[entrait(pub Create)]
 async fn create(
-    deps: &impl article_db::InsertArticle,
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::InsertArticle),
+    token: Token,
     article: ArticleCreate,
 ) -> RwResult<Article> {
+    let current_user_id = deps.authenticate(token)?;
     let slug = slugify(&article.title);
     deps.insert_article(
         current_user_id,
@@ -180,11 +184,12 @@ async fn create(
 
 #[entrait(pub Update)]
 async fn update(
-    deps: &(impl article_db::UpdateArticle + article_db::SelectArticles),
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::UpdateArticle + article_db::SelectArticles),
+    token: Token,
     slug: &str,
     article_update: ArticleUpdate,
 ) -> RwResult<Article> {
+    let current_user_id = deps.authenticate(token)?;
     let new_slug = article_update.title.as_deref().map(slugify);
 
     deps.update_article(
@@ -204,22 +209,25 @@ async fn update(
 
 #[entrait(pub Delete)]
 async fn delete(
-    deps: &impl article_db::DeleteArticle,
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::DeleteArticle),
+    token: Token,
     slug: &str,
 ) -> RwResult<()> {
+    let current_user_id = deps.authenticate(token)?;
     deps.delete_article(current_user_id, slug).await
 }
 
 #[entrait(pub Favorite)]
 async fn favorite(
-    deps: &(impl article_db::FavoriteArticle
+    deps: &(impl Authenticate
+          + article_db::FavoriteArticle
           + article_db::UnfavoriteArticle
           + article_db::SelectArticles),
-    Authenticated(current_user_id): Authenticated<UserId>,
+    token: Token,
     slug: &str,
     value: bool,
 ) -> RwResult<Article> {
+    let current_user_id = deps.authenticate(token)?;
     if value {
         deps.favorite_article(current_user_id.clone(), slug).await?;
     } else {
@@ -231,8 +239,8 @@ async fn favorite(
 
 #[entrait(pub ListComments)]
 async fn list_comments(
-    deps: &impl article_db::FavoriteArticle,
-    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    deps: &(impl OptAuthenticate + article_db::FavoriteArticle),
+    token: Option<Token>,
     slug: &str,
 ) -> RwResult<Vec<Comment>> {
     panic!()
@@ -240,21 +248,23 @@ async fn list_comments(
 
 #[entrait(pub AddComment)]
 async fn add_comment(
-    deps: &impl article_db::FavoriteArticle,
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::FavoriteArticle),
+    token: Token,
     slug: &str,
     body: &str,
 ) -> RwResult<Comment> {
+    let current_user_id = deps.authenticate(token)?;
     panic!()
 }
 
 #[entrait(pub DeleteComment)]
 async fn delete_comment(
-    deps: &impl article_db::FavoriteArticle,
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + article_db::FavoriteArticle),
+    token: Token,
     slug: &str,
     comment_id: i64,
 ) -> RwResult<Comment> {
+    let current_user_id = deps.authenticate(token)?;
     panic!()
 }
 
@@ -304,6 +314,7 @@ mod tests {
     use super::*;
     use assert_matches::*;
     use unimock::*;
+    use uuid::Uuid;
 
     fn test_timestamp() -> Timestamptz {
         Timestamptz(
@@ -333,18 +344,35 @@ mod tests {
         }
     }
 
+    fn mock_authenticate() -> unimock::Clause {
+        authenticate::Fn
+            .next_call(matching!(_))
+            .answers(|_| Ok(UserId(Uuid::new_v4())))
+            .once()
+            .in_order()
+    }
+
+    fn mock_authenticate_anonymous() -> unimock::Clause {
+        opt_authenticate::Fn
+            .next_call(matching!(None))
+            .answers(|_| Ok(UserId(None)))
+            .once()
+            .in_order()
+    }
+
     #[tokio::test]
     async fn create_article_should_slugify() {
-        let deps = mock(Some(
+        let deps = mock([
+            mock_authenticate(),
             article_db::insert_article::Fn
                 .next_call(matching!(UserId(_), "my-title", _, _, _, _))
                 .answers(|_| Ok(test_db_article()))
                 .once()
                 .in_order(),
-        ));
+        ]);
         create(
             &deps,
-            Authenticated(UserId(uuid::Uuid::new_v4())),
+            Token::from_token("token"),
             ArticleCreate {
                 title: "My Title".to_string(),
                 description: "Desc".to_string(),
@@ -358,7 +386,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_article_empty_result_should_produce_not_found_error() {
-        let deps = mock(Some(
+        let deps = mock([
+            mock_authenticate_anonymous(),
             article_db::select_articles::Fn
                 .next_call(matching!(
                     UserId(None),
@@ -370,9 +399,9 @@ mod tests {
                 .answers(|_| Ok(vec![]))
                 .once()
                 .in_order(),
-        ));
+        ]);
         assert_matches!(
-            fetch(&deps, MaybeAuthenticated(None), "slug").await,
+            fetch(&deps, Token::none(), "slug").await,
             Err(RwError::ArticleNotFound)
         );
     }
@@ -380,6 +409,7 @@ mod tests {
     #[tokio::test]
     async fn update_article_should_update_slug() {
         let deps = mock([
+            mock_authenticate(),
             article_db::update_article::Fn
                 .next_call(matching!(
                     UserId(_),
@@ -408,7 +438,7 @@ mod tests {
         ]);
         update(
             &deps,
-            Authenticated(UserId(uuid::Uuid::new_v4())),
+            Token::from_token("token"),
             "slug",
             ArticleUpdate {
                 title: Some("New Title".to_string()),

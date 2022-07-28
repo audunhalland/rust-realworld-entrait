@@ -1,6 +1,6 @@
 use realworld_article;
 use realworld_core::error::RwResult;
-use realworld_user::auth::{self, Token};
+use realworld_user::auth::Token;
 
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{delete, get, post};
@@ -36,8 +36,7 @@ pub struct ArticleRoutes<D>(std::marker::PhantomData<D>);
 
 impl<D: Sized + Clone + Send + Sync + 'static> ArticleRoutes<D>
 where
-    D: auth::Authenticate
-        + realworld_article::List
+    D: realworld_article::List
         + realworld_article::Feed
         + realworld_article::Fetch
         + realworld_article::Create
@@ -52,7 +51,7 @@ where
         axum::Router::new().nest(
             "/articles",
             axum::Router::new()
-                .route("", get(Self::list_articles).post(Self::create_article))
+                .route("/", get(Self::list_articles).post(Self::create_article))
                 .route(
                     "/:slug",
                     get(Self::get_article)
@@ -77,9 +76,8 @@ where
         token: Option<Token>,
         Query(query): Query<realworld_article::ListArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(MultipleArticlesBody {
-            articles: deps.list(opt_current_user.into(), query).await?,
+            articles: deps.list(token, query).await?,
         }))
     }
 
@@ -88,9 +86,8 @@ where
         token: Token,
         Query(query): Query<realworld_article::FeedArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
-        let user = deps.authenticate(token)?;
         Ok(Json(MultipleArticlesBody {
-            articles: deps.feed(user.into(), query).await?,
+            articles: deps.feed(token, query).await?,
         }))
     }
 
@@ -99,9 +96,8 @@ where
         token: Option<Token>,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(ArticleBody {
-            article: deps.fetch(opt_current_user.into(), &slug).await?,
+            article: deps.fetch(token, &slug).await?,
         }))
     }
 
@@ -110,9 +106,8 @@ where
         token: Token,
         Json(body): Json<ArticleBody<realworld_article::ArticleCreate>>,
     ) -> RwResult<Json<ArticleBody<realworld_article::Article>>> {
-        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: deps.create(current_user, body.article).await?,
+            article: deps.create(token, body.article).await?,
         }))
     }
 
@@ -122,9 +117,8 @@ where
         Path(slug): Path<String>,
         Json(body): Json<ArticleBody<realworld_article::ArticleUpdate>>,
     ) -> RwResult<Json<ArticleBody>> {
-        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: deps.update(current_user, &slug, body.article).await?,
+            article: deps.update(token, &slug, body.article).await?,
         }))
     }
 
@@ -133,8 +127,7 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<()> {
-        let current_user = deps.authenticate(token)?;
-        deps.delete(current_user, &slug).await?;
+        deps.delete(token, &slug).await?;
         Ok(())
     }
 
@@ -143,9 +136,8 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: deps.favorite(current_user, &slug, true).await?,
+            article: deps.favorite(token, &slug, true).await?,
         }))
     }
 
@@ -154,9 +146,8 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
-        let current_user = deps.authenticate(token)?;
         Ok(Json(ArticleBody {
-            article: deps.favorite(current_user, &slug, false).await?,
+            article: deps.favorite(token, &slug, false).await?,
         }))
     }
 
@@ -165,9 +156,8 @@ where
         token: Option<Token>,
         Path(slug): Path<String>,
     ) -> RwResult<Json<MultipleCommentsBody>> {
-        let opt_current_user = token.map(|token| deps.authenticate(token)).transpose()?;
         Ok(Json(MultipleCommentsBody {
-            comments: deps.list_comments(opt_current_user.into(), &slug).await?,
+            comments: deps.list_comments(token, &slug).await?,
         }))
     }
 
@@ -177,9 +167,8 @@ where
         Path(slug): Path<String>,
         Json(CommentBody { comment }): Json<CommentBody<AddComment>>,
     ) -> RwResult<Json<CommentBody>> {
-        let current_user = deps.authenticate(token)?;
         Ok(Json(CommentBody {
-            comment: deps.add_comment(current_user, &slug, &comment.body).await?,
+            comment: deps.add_comment(token, &slug, &comment.body).await?,
         }))
     }
 
@@ -189,8 +178,7 @@ where
         Path(slug): Path<String>,
         Path(comment_id): Path<i64>,
     ) -> RwResult<()> {
-        let current_user = deps.authenticate(token)?;
-        deps.delete_comment(current_user, &slug, comment_id).await?;
+        deps.delete_comment(token, &slug, comment_id).await?;
         Ok(())
     }
 }
@@ -201,7 +189,6 @@ mod tests {
     use crate::test_util::*;
 
     use axum::http::{Request, StatusCode};
-    use realworld_user::auth::MaybeAuthenticated;
     use unimock::*;
 
     fn test_router(deps: Unimock) -> axum::Router {
@@ -213,7 +200,7 @@ mod tests {
         let deps = mock(Some(
             realworld_article::list::Fn
                 .next_call(matching! {
-                    (MaybeAuthenticated(None), query) if query == &realworld_article::ListArticlesQuery::default()
+                    (None, query) if query == &realworld_article::ListArticlesQuery::default()
                 })
                 .answers(|_| Ok(vec![]))
                 .once()

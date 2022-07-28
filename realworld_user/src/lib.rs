@@ -2,13 +2,14 @@ pub mod auth;
 pub mod password;
 pub mod profile;
 
-use auth::{Authenticated, MaybeAuthenticated};
+use auth::{Authenticate, OptAuthenticate, Token};
 
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
 use realworld_db::user_db;
 
 use entrait::entrait_export as entrait;
+use uuid::Uuid;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
@@ -74,9 +75,10 @@ async fn login(
 
 #[entrait(pub FetchCurrent)]
 async fn fetch_current(
-    deps: &(impl user_db::FindUserCredentialsById + auth::SignUserId),
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + user_db::FindUserCredentialsById + auth::SignUserId),
+    token: Token,
 ) -> RwResult<SignedUser> {
+    let current_user_id = deps.authenticate(token)?;
     let (db_user, credentials) = deps
         .find_user_credentials_by_id(current_user_id)
         .await?
@@ -87,10 +89,11 @@ async fn fetch_current(
 
 #[entrait(pub Update)]
 async fn update(
-    deps: &(impl password::HashPassword + user_db::UpdateUser + auth::SignUserId),
-    Authenticated(current_user_id): Authenticated<UserId>,
+    deps: &(impl Authenticate + password::HashPassword + user_db::UpdateUser + auth::SignUserId),
+    token: Token,
     user_update: UserUpdate,
 ) -> RwResult<SignedUser> {
+    let current_user_id = deps.authenticate(token)?;
     let password_hash = if let Some(password) = &user_update.password {
         Some(deps.hash_password(password.clone()).await?)
     } else {
@@ -125,12 +128,40 @@ fn sign(deps: &impl auth::SignUserId, db_user: user_db::User, email: String) -> 
 
 #[entrait(pub FetchProfile)]
 async fn fetch_profile(
+    deps: &(impl OptAuthenticate + user_db::FindUserByUsername),
+    token: Option<Token>,
+    username: &str,
+) -> RwResult<profile::Profile> {
+    let current_user_id = deps.opt_authenticate(token)?;
+    fetch_profile_inner(deps, current_user_id, username).await
+}
+
+#[entrait(pub Follow)]
+async fn follow(
+    deps: &(impl Authenticate
+          + user_db::InsertFollow
+          + user_db::DeleteFollow
+          + user_db::FindUserByUsername),
+    token: Token,
+    username: &str,
+    value: bool,
+) -> RwResult<profile::Profile> {
+    let current_user_id = deps.authenticate(token)?;
+    if value {
+        deps.insert_follow(current_user_id, username).await?;
+    } else {
+        deps.delete_follow(current_user_id, username).await?;
+    }
+    fetch_profile_inner(deps, current_user_id.some(), username).await
+}
+
+async fn fetch_profile_inner(
     deps: &impl user_db::FindUserByUsername,
-    MaybeAuthenticated(current_user_id): MaybeAuthenticated<UserId>,
+    current_user_id: UserId<Option<Uuid>>,
     username: &str,
 ) -> RwResult<profile::Profile> {
     let (user, following) = deps
-        .find_user_by_username(UserId(current_user_id.map(UserId::into_id)), username)
+        .find_user_by_username(current_user_id, username)
         .await?
         .ok_or(RwError::ProfileNotFound)?;
 
@@ -142,26 +173,11 @@ async fn fetch_profile(
     })
 }
 
-#[entrait(pub Follow)]
-async fn follow(
-    deps: &(impl user_db::InsertFollow + user_db::DeleteFollow + FetchProfile),
-    Authenticated(current_user_id): Authenticated<UserId>,
-    username: &str,
-    value: bool,
-) -> RwResult<profile::Profile> {
-    if value {
-        deps.insert_follow(current_user_id, username).await?;
-    } else {
-        deps.delete_follow(current_user_id, username).await?;
-    }
-    deps.fetch_profile(MaybeAuthenticated(Some(current_user_id)), username)
-        .await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use realworld_core::PasswordHash;
+    use realworld_core::UserId;
     use realworld_db::user_db;
 
     use unimock::*;

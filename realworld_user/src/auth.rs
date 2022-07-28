@@ -29,30 +29,8 @@ fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
     .expect("HMAC signing should be infallible")
 }
 
-/// Marker/Wrapper type for anything authenticated
-#[derive(Clone)]
-pub struct Authenticated<T>(pub T);
-
-impl<T> From<Authenticated<T>> for MaybeAuthenticated<T> {
-    fn from(authenticated: Authenticated<T>) -> Self {
-        Self(Some(authenticated.0))
-    }
-}
-
-impl<T> From<Option<Authenticated<T>>> for MaybeAuthenticated<T> {
-    fn from(authenticated: Option<Authenticated<T>>) -> Self {
-        match authenticated {
-            Some(authenticated) => Self(Some(authenticated.0)),
-            None => Self(None),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct MaybeAuthenticated<T>(pub Option<T>);
-
 #[entrait(pub Authenticate)]
-fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<Authenticated<UserId>> {
+fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<UserId> {
     let token = token.token();
 
     let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
@@ -69,7 +47,18 @@ fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<Auth
         return Err(RwError::Unauthorized);
     }
 
-    Ok(Authenticated(UserId(claims.user_id)))
+    Ok(UserId(claims.user_id))
+}
+
+#[entrait(pub OptAuthenticate)]
+fn opt_authenticate(
+    deps: &impl Authenticate,
+    token: Option<Token>,
+) -> RwResult<UserId<Option<Uuid>>> {
+    Ok(match token {
+        Some(token) => UserId(Some(deps.authenticate(token)?.0)),
+        None => UserId(None),
+    })
 }
 
 ///
@@ -79,6 +68,14 @@ fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<Auth
 pub struct Token(String);
 
 impl Token {
+    pub fn none() -> Option<Token> {
+        None
+    }
+
+    pub fn from_token(token: &str) -> Self {
+        Self(format!("Token {token}"))
+    }
+
     pub fn token(&self) -> &str {
         &self.0.as_str()["Token ".len()..]
     }
@@ -131,8 +128,7 @@ mod tests {
             token
         );
 
-        let Authenticated(result_user_id) =
-            authenticate(&deps, Token(format!("Token {token}"))).unwrap();
+        let result_user_id = authenticate(&deps, Token::from_token(&token)).unwrap();
 
         assert_eq!(user_id, result_user_id);
     }
