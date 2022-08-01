@@ -30,35 +30,42 @@ fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
 }
 
 #[entrait(pub Authenticate)]
-fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<UserId> {
-    let token = token.token();
+pub mod authenticate {
+    use super::*;
 
-    let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
-        .map_err(|_| RwError::Unauthorized)?;
-
-    let hmac = deps.get_jwt_signing_key();
-
-    let jwt = jwt
-        .verify_with_key(hmac)
-        .map_err(|_| RwError::Unauthorized)?;
-    let (_header, claims) = jwt.into();
-
-    if claims.exp < deps.get_current_time().unix_timestamp() {
-        return Err(RwError::Unauthorized);
+    pub fn authenticate(deps: &(impl System + GetConfig), token: Token) -> RwResult<UserId> {
+        authenticate_inner(deps, token)
     }
 
-    Ok(UserId(claims.user_id))
-}
+    pub fn opt_authenticate(
+        deps: &(impl System + GetConfig),
+        token: Option<Token>,
+    ) -> RwResult<UserId<Option<Uuid>>> {
+        Ok(match token {
+            Some(token) => UserId(Some(authenticate_inner(deps, token)?.0)),
+            None => UserId(None),
+        })
+    }
 
-#[entrait(pub OptAuthenticate)]
-fn opt_authenticate(
-    deps: &impl Authenticate,
-    token: Option<Token>,
-) -> RwResult<UserId<Option<Uuid>>> {
-    Ok(match token {
-        Some(token) => UserId(Some(deps.authenticate(token)?.0)),
-        None => UserId(None),
-    })
+    fn authenticate_inner(deps: &(impl System + GetConfig), token: Token) -> RwResult<UserId> {
+        let token = token.token();
+
+        let jwt = jwt::Token::<jwt::Header, AuthUserClaims, _>::parse_unverified(token)
+            .map_err(|_| RwError::Unauthorized)?;
+
+        let hmac = deps.get_jwt_signing_key();
+
+        let jwt = jwt
+            .verify_with_key(hmac)
+            .map_err(|_| RwError::Unauthorized)?;
+        let (_header, claims) = jwt.into();
+
+        if claims.exp < deps.get_current_time().unix_timestamp() {
+            return Err(RwError::Unauthorized);
+        }
+
+        Ok(UserId(claims.user_id))
+    }
 }
 
 ///
@@ -128,7 +135,7 @@ mod tests {
             token
         );
 
-        let result_user_id = authenticate(&deps, Token::from_token(&token)).unwrap();
+        let result_user_id = authenticate::authenticate(&deps, Token::from_token(&token)).unwrap();
 
         assert_eq!(user_id, result_user_id);
     }

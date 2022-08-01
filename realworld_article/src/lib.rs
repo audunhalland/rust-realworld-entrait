@@ -117,7 +117,7 @@ pub mod api {
     use super::*;
 
     pub async fn list_articles(
-        deps: &(impl OptAuthenticate + article_db::Select),
+        deps: &(impl Authenticate + article_db::Select),
         token: Option<Token>,
         query: ListArticlesQuery,
     ) -> RwResult<Vec<Article>> {
@@ -161,7 +161,7 @@ pub mod api {
     }
 
     pub async fn fetch_article(
-        deps: &(impl OptAuthenticate + article_db::Select),
+        deps: &(impl Authenticate + article_db::Select),
         token: Option<Token>,
         slug: &str,
     ) -> RwResult<Article> {
@@ -251,7 +251,7 @@ pub mod api {
     }
 
     pub async fn list_comments(
-        deps: &(impl OptAuthenticate + article_db::FetchId + comment_db::List),
+        deps: &(impl Authenticate + article_db::FetchId + comment_db::List),
         token: Option<Token>,
         slug: &str,
     ) -> RwResult<Vec<Comment>> {
@@ -367,7 +367,7 @@ mod tests {
     }
 
     fn mock_authenticate() -> unimock::Clause {
-        authenticate::Fn
+        authenticate::authenticate::Fn
             .next_call(matching!(_))
             .answers(|_| Ok(UserId(Uuid::new_v4())))
             .once()
@@ -375,7 +375,7 @@ mod tests {
     }
 
     fn mock_authenticate_anonymous() -> unimock::Clause {
-        opt_authenticate::Fn
+        authenticate::opt_authenticate::Fn
             .next_call(matching!(None))
             .answers(|_| Ok(UserId(None)))
             .once()

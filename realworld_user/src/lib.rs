@@ -2,7 +2,7 @@ pub mod auth;
 pub mod password;
 pub mod profile;
 
-use auth::{Authenticate, OptAuthenticate, Token};
+use auth::{Authenticate, Token};
 
 use realworld_core::error::{RwError, RwResult};
 use realworld_core::UserId;
@@ -128,7 +128,7 @@ fn sign(deps: &impl auth::SignUserId, db_user: user_db::User, email: String) -> 
 
 #[entrait(pub FetchProfile)]
 async fn fetch_profile(
-    deps: &(impl OptAuthenticate + user_db::FindUserByUsername),
+    deps: &(impl Authenticate + user_db::FindUserByUsername),
     token: Option<Token>,
     username: &str,
 ) -> RwResult<profile::Profile> {
