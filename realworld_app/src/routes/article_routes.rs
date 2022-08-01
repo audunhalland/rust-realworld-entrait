@@ -36,16 +36,7 @@ pub struct ArticleRoutes<D>(std::marker::PhantomData<D>);
 
 impl<D: Sized + Clone + Send + Sync + 'static> ArticleRoutes<D>
 where
-    D: realworld_article::List
-        + realworld_article::Feed
-        + realworld_article::Fetch
-        + realworld_article::Create
-        + realworld_article::Update
-        + realworld_article::Delete
-        + realworld_article::Favorite
-        + realworld_article::ListComments
-        + realworld_article::AddComment
-        + realworld_article::DeleteComment,
+    D: realworld_article::Api,
 {
     pub fn router() -> axum::Router {
         axum::Router::new().nest(
@@ -77,7 +68,7 @@ where
         Query(query): Query<realworld_article::ListArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
         Ok(Json(MultipleArticlesBody {
-            articles: deps.list(token, query).await?,
+            articles: deps.list_articles(token, query).await?,
         }))
     }
 
@@ -87,7 +78,7 @@ where
         Query(query): Query<realworld_article::FeedArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
         Ok(Json(MultipleArticlesBody {
-            articles: deps.feed(token, query).await?,
+            articles: deps.feed_articles(token, query).await?,
         }))
     }
 
@@ -97,7 +88,7 @@ where
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
         Ok(Json(ArticleBody {
-            article: deps.fetch(token, &slug).await?,
+            article: deps.fetch_article(token, &slug).await?,
         }))
     }
 
@@ -107,7 +98,7 @@ where
         Json(body): Json<ArticleBody<realworld_article::ArticleCreate>>,
     ) -> RwResult<Json<ArticleBody<realworld_article::Article>>> {
         Ok(Json(ArticleBody {
-            article: deps.create(token, body.article).await?,
+            article: deps.create_article(token, body.article).await?,
         }))
     }
 
@@ -118,7 +109,7 @@ where
         Json(body): Json<ArticleBody<realworld_article::ArticleUpdate>>,
     ) -> RwResult<Json<ArticleBody>> {
         Ok(Json(ArticleBody {
-            article: deps.update(token, &slug, body.article).await?,
+            article: deps.update_article(token, &slug, body.article).await?,
         }))
     }
 
@@ -127,7 +118,7 @@ where
         token: Token,
         Path(slug): Path<String>,
     ) -> RwResult<()> {
-        deps.delete(token, &slug).await?;
+        deps.delete_article(token, &slug).await?;
         Ok(())
     }
 
@@ -137,7 +128,7 @@ where
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
         Ok(Json(ArticleBody {
-            article: deps.favorite(token, &slug, true).await?,
+            article: deps.favorite_article(token, &slug, true).await?,
         }))
     }
 
@@ -147,7 +138,7 @@ where
         Path(slug): Path<String>,
     ) -> RwResult<Json<ArticleBody>> {
         Ok(Json(ArticleBody {
-            article: deps.favorite(token, &slug, false).await?,
+            article: deps.favorite_article(token, &slug, false).await?,
         }))
     }
 
@@ -198,7 +189,7 @@ mod tests {
     #[tokio::test]
     async fn list_articles_should_accept_no_auth() {
         let deps = mock(Some(
-            realworld_article::list::Fn
+            realworld_article::api::list_articles::Fn
                 .next_call(matching! {
                     (None, query) if query == &realworld_article::ListArticlesQuery::default()
                 })

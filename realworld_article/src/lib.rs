@@ -104,29 +104,6 @@ pub struct ListArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub List)]
-async fn list(
-    deps: &(impl OptAuthenticate + article_db::Select),
-    token: Option<Token>,
-    query: ListArticlesQuery,
-) -> RwResult<Vec<Article>> {
-    let current_user_id = deps.opt_authenticate(token)?;
-    deps.select(
-        current_user_id,
-        article_db::Filter {
-            slug: None,
-            tag: query.tag.as_deref(),
-            author: query.author.as_deref(),
-            favorited_by: query.favorited.as_deref(),
-            followed_by: None,
-            limit: query.limit,
-            offset: query.offset,
-        },
-    )
-    .await
-    .map(|articles| articles.into_iter().map(Into::into).collect())
-}
-
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
 pub struct FeedArticlesQuery {
@@ -135,162 +112,180 @@ pub struct FeedArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub Feed)]
-async fn feed(
-    deps: &(impl Authenticate + article_db::Select),
-    token: Token,
-    query: FeedArticlesQuery,
-) -> RwResult<Vec<Article>> {
-    let current_user_id = deps.authenticate(token)?;
-    deps.select(
-        current_user_id.some(),
-        article_db::Filter {
-            slug: None,
-            tag: None,
-            author: None,
-            favorited_by: None,
-            followed_by: Some(current_user_id),
-            limit: query.limit,
-            offset: query.offset,
-        },
-    )
-    .await
-    .map(|articles| articles.into_iter().map(Into::into).collect())
-}
+#[entrait(pub Api)]
+pub mod api {
+    use super::*;
 
-#[entrait(pub Fetch)]
-async fn fetch(
-    deps: &(impl OptAuthenticate + article_db::Select),
-    token: Option<Token>,
-    slug: &str,
-) -> RwResult<Article> {
-    let current_user_id = deps.opt_authenticate(token)?;
-    deps.select(
-        current_user_id,
-        article_db::Filter {
-            slug: Some(slug),
-            ..Default::default()
-        },
-    )
-    .await?
-    .into_iter()
-    .single_or_none()?
-    .map(Into::into)
-    .ok_or(RwError::ArticleNotFound)
-}
-
-#[entrait(pub Create)]
-async fn create(
-    deps: &(impl Authenticate + article_db::Insert),
-    token: Token,
-    article: ArticleCreate,
-) -> RwResult<Article> {
-    let current_user_id = deps.authenticate(token)?;
-    let slug = slugify(&article.title);
-    deps.insert(
-        current_user_id,
-        &slug,
-        &article.title,
-        &article.description,
-        &article.body,
-        &article.tag_list,
-    )
-    .await
-    .map(Into::into)
-}
-
-#[entrait(pub Update)]
-async fn update(
-    deps: &(impl Authenticate + article_db::Update + article_db::Select),
-    token: Token,
-    slug: &str,
-    article_update: ArticleUpdate,
-) -> RwResult<Article> {
-    let current_user_id = deps.authenticate(token)?;
-    let new_slug = article_update.title.as_deref().map(slugify);
-
-    deps.update(
-        current_user_id,
-        slug,
-        article_db::ArticleUpdate {
-            slug: new_slug.as_deref(),
-            title: article_update.title.as_deref(),
-            description: article_update.description.as_deref(),
-            body: article_update.body.as_deref(),
-        },
-    )
-    .await?;
-
-    get_single_article(deps, current_user_id, new_slug.as_deref().unwrap_or(slug)).await
-}
-
-#[entrait(pub Delete)]
-async fn delete(
-    deps: &(impl Authenticate + article_db::Delete),
-    token: Token,
-    slug: &str,
-) -> RwResult<()> {
-    let current_user_id = deps.authenticate(token)?;
-    deps.delete(current_user_id, slug).await
-}
-
-#[entrait(pub Favorite)]
-async fn favorite(
-    deps: &(impl Authenticate
-          + article_db::InsertFavorite
-          + article_db::DeleteFavorite
-          + article_db::Select),
-    token: Token,
-    slug: &str,
-    value: bool,
-) -> RwResult<Article> {
-    let current_user_id = deps.authenticate(token)?;
-    if value {
-        deps.insert_favorite(current_user_id, slug).await?;
-    } else {
-        deps.delete_favorite(current_user_id, slug).await?;
+    pub async fn list_articles(
+        deps: &(impl OptAuthenticate + article_db::Select),
+        token: Option<Token>,
+        query: ListArticlesQuery,
+    ) -> RwResult<Vec<Article>> {
+        let current_user_id = deps.opt_authenticate(token)?;
+        deps.select(
+            current_user_id,
+            article_db::Filter {
+                slug: None,
+                tag: query.tag.as_deref(),
+                author: query.author.as_deref(),
+                favorited_by: query.favorited.as_deref(),
+                followed_by: None,
+                limit: query.limit,
+                offset: query.offset,
+            },
+        )
+        .await
+        .map(|articles| articles.into_iter().map(Into::into).collect())
     }
-    get_single_article(deps, current_user_id, slug).await
-}
 
-#[entrait(pub ListComments)]
-async fn list_comments(
-    deps: &(impl OptAuthenticate + article_db::FetchId + comment_db::List),
-    token: Option<Token>,
-    slug: &str,
-) -> RwResult<Vec<Comment>> {
-    let current_user_id = deps.opt_authenticate(token)?;
-    let article_id = deps.fetch_id(slug).await?;
-    Ok(deps
-        .list(current_user_id, article_id)
+    pub async fn feed_articles(
+        deps: &(impl Authenticate + article_db::Select),
+        token: Token,
+        query: FeedArticlesQuery,
+    ) -> RwResult<Vec<Article>> {
+        let current_user_id = deps.authenticate(token)?;
+        deps.select(
+            current_user_id.some(),
+            article_db::Filter {
+                slug: None,
+                tag: None,
+                author: None,
+                favorited_by: None,
+                followed_by: Some(current_user_id),
+                limit: query.limit,
+                offset: query.offset,
+            },
+        )
+        .await
+        .map(|articles| articles.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn fetch_article(
+        deps: &(impl OptAuthenticate + article_db::Select),
+        token: Option<Token>,
+        slug: &str,
+    ) -> RwResult<Article> {
+        let current_user_id = deps.opt_authenticate(token)?;
+        deps.select(
+            current_user_id,
+            article_db::Filter {
+                slug: Some(slug),
+                ..Default::default()
+            },
+        )
         .await?
         .into_iter()
+        .single_or_none()?
         .map(Into::into)
-        .collect())
-}
+        .ok_or(RwError::ArticleNotFound)
+    }
 
-#[entrait(pub AddComment)]
-async fn add_comment(
-    deps: &(impl Authenticate + comment_db::Insert),
-    token: Token,
-    slug: &str,
-    body: &str,
-) -> RwResult<Comment> {
-    let current_user_id = deps.authenticate(token)?;
-    deps.insert(current_user_id, slug, body)
+    pub async fn create_article(
+        deps: &(impl Authenticate + article_db::Insert),
+        token: Token,
+        article: ArticleCreate,
+    ) -> RwResult<Article> {
+        let current_user_id = deps.authenticate(token)?;
+        let slug = slugify(&article.title);
+        deps.insert(
+            current_user_id,
+            &slug,
+            &article.title,
+            &article.description,
+            &article.body,
+            &article.tag_list,
+        )
         .await
         .map(Into::into)
-}
+    }
 
-#[entrait(pub DeleteComment)]
-async fn delete_comment(
-    deps: &(impl Authenticate + comment_db::Delete),
-    token: Token,
-    slug: &str,
-    comment_id: i64,
-) -> RwResult<()> {
-    let current_user_id = deps.authenticate(token)?;
-    deps.delete(current_user_id, slug, comment_id).await
+    pub async fn update_article(
+        deps: &(impl Authenticate + article_db::Update + article_db::Select),
+        token: Token,
+        slug: &str,
+        article_update: ArticleUpdate,
+    ) -> RwResult<Article> {
+        let current_user_id = deps.authenticate(token)?;
+        let new_slug = article_update.title.as_deref().map(slugify);
+
+        deps.update(
+            current_user_id,
+            slug,
+            article_db::ArticleUpdate {
+                slug: new_slug.as_deref(),
+                title: article_update.title.as_deref(),
+                description: article_update.description.as_deref(),
+                body: article_update.body.as_deref(),
+            },
+        )
+        .await?;
+
+        get_single_article(deps, current_user_id, new_slug.as_deref().unwrap_or(slug)).await
+    }
+
+    pub async fn delete_article(
+        deps: &(impl Authenticate + article_db::Delete),
+        token: Token,
+        slug: &str,
+    ) -> RwResult<()> {
+        let current_user_id = deps.authenticate(token)?;
+        deps.delete(current_user_id, slug).await
+    }
+
+    pub async fn favorite_article(
+        deps: &(impl Authenticate
+              + article_db::InsertFavorite
+              + article_db::DeleteFavorite
+              + article_db::Select),
+        token: Token,
+        slug: &str,
+        value: bool,
+    ) -> RwResult<Article> {
+        let current_user_id = deps.authenticate(token)?;
+        if value {
+            deps.insert_favorite(current_user_id, slug).await?;
+        } else {
+            deps.delete_favorite(current_user_id, slug).await?;
+        }
+        get_single_article(deps, current_user_id, slug).await
+    }
+
+    pub async fn list_comments(
+        deps: &(impl OptAuthenticate + article_db::FetchId + comment_db::List),
+        token: Option<Token>,
+        slug: &str,
+    ) -> RwResult<Vec<Comment>> {
+        let current_user_id = deps.opt_authenticate(token)?;
+        let article_id = deps.fetch_id(slug).await?;
+        Ok(deps
+            .list(current_user_id, article_id)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    pub async fn add_comment(
+        deps: &(impl Authenticate + comment_db::Insert),
+        token: Token,
+        slug: &str,
+        body: &str,
+    ) -> RwResult<Comment> {
+        let current_user_id = deps.authenticate(token)?;
+        deps.insert(current_user_id, slug, body)
+            .await
+            .map(Into::into)
+    }
+
+    pub async fn delete_comment(
+        deps: &(impl Authenticate + comment_db::Delete),
+        token: Token,
+        slug: &str,
+        comment_id: i64,
+    ) -> RwResult<()> {
+        let current_user_id = deps.authenticate(token)?;
+        deps.delete(current_user_id, slug, comment_id).await
+    }
 }
 
 async fn get_single_article(
@@ -397,7 +392,7 @@ mod tests {
                 .once()
                 .in_order(),
         ]);
-        create(
+        api::create_article(
             &deps,
             Token::from_token("token"),
             ArticleCreate {
@@ -428,7 +423,7 @@ mod tests {
                 .in_order(),
         ]);
         assert_matches!(
-            fetch(&deps, Token::none(), "slug").await,
+            api::fetch_article(&deps, Token::none(), "slug").await,
             Err(RwError::ArticleNotFound)
         );
     }
@@ -463,7 +458,7 @@ mod tests {
                 .once()
                 .in_order(),
         ]);
-        update(
+        api::update_article(
             &deps,
             Token::from_token("token"),
             "slug",
