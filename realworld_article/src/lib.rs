@@ -286,49 +286,49 @@ pub mod api {
         let current_user_id = deps.authenticate(token)?;
         deps.delete(current_user_id, slug, comment_id).await
     }
-}
 
-async fn get_single_article(
-    deps: &impl article_db::Select,
-    current_user_id: UserId,
-    slug: &str,
-) -> RwResult<Article> {
-    deps.select(
-        current_user_id.some(),
-        article_db::Filter {
-            slug: Some(slug),
-            ..Default::default()
-        },
-    )
-    .await?
-    .into_iter()
-    .single()
-    .map(Into::into)
-}
+    async fn get_single_article(
+        deps: &impl article_db::Select,
+        current_user_id: UserId,
+        slug: &str,
+    ) -> RwResult<Article> {
+        deps.select(
+            current_user_id.some(),
+            article_db::Filter {
+                slug: Some(slug),
+                ..Default::default()
+            },
+        )
+        .await?
+        .into_iter()
+        .single()
+        .map(Into::into)
+    }
 
-fn slugify(string: &str) -> String {
-    use itertools::Itertools;
+    fn slugify(string: &str) -> String {
+        use itertools::Itertools;
 
-    const QUOTE_CHARS: &[char] = &['\'', '"'];
+        const QUOTE_CHARS: &[char] = &['\'', '"'];
 
-    string
-        // Split on anything that isn't a word character or quotation mark.
-        // This has the effect of keeping contractions and possessives together.
-        .split(|c: char| !(QUOTE_CHARS.contains(&c) || c.is_alphanumeric()))
-        // If multiple non-word characters follow each other then we'll get empty substrings
-        // so we'll filter those out.
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            // Remove quotes from the substring.
-            //
-            // This allocation is probably avoidable with some more iterator hackery but
-            // at that point we'd be micro-optimizing. This function isn't called all that often.
-            let mut s = s.replace(QUOTE_CHARS, "");
-            // Make the substring lowercase (in-place operation)
-            s.make_ascii_lowercase();
-            s
-        })
-        .join("-")
+        string
+            // Split on anything that isn't a word character or quotation mark.
+            // This has the effect of keeping contractions and possessives together.
+            .split(|c: char| !(QUOTE_CHARS.contains(&c) || c.is_alphanumeric()))
+            // If multiple non-word characters follow each other then we'll get empty substrings
+            // so we'll filter those out.
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                // Remove quotes from the substring.
+                //
+                // This allocation is probably avoidable with some more iterator hackery but
+                // at that point we'd be micro-optimizing. This function isn't called all that often.
+                let mut s = s.replace(QUOTE_CHARS, "");
+                // Make the substring lowercase (in-place operation)
+                s.make_ascii_lowercase();
+                s
+            })
+            .join("-")
+    }
 }
 
 #[cfg(test)]
