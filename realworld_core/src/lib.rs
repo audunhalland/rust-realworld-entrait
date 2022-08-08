@@ -1,4 +1,4 @@
-use entrait::entrait;
+use entrait::entrait_export as entrait;
 
 pub mod error;
 pub mod iter_util;
