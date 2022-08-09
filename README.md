@@ -12,9 +12,8 @@ This crate contains domain types, core business logic and various abstraction la
 
 It is not a runnable application on its own, but exports business logic as _traits_ that can be trivially implemented for any application.
 
-The crate is abstract over any kind of external systems the resulting application needs to be dependent upon.
-Examples are database/storage, application environment (like clock) and specific configuration parameters.
-
+The crate is abstract over any kind of external systems the resulting application needs to be dependent upon,
+    like database/storage, application environment (like clock) and specific configuration parameters.
 All such abstractions are defined as traits that must be implemented outside this crate.
 
 ### `realworld_db`
