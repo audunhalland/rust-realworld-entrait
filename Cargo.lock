@@ -1214,23 +1214,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "realworld-article"
-version = "0.1.0"
-dependencies = [
- "assert_matches",
- "entrait",
- "itertools",
- "realworld-core",
- "realworld-db",
- "realworld-user",
- "serde",
- "time",
- "tokio",
- "unimock",
- "uuid",
-]
-
-[[package]]
 name = "realworld-core"
 version = "0.1.0"
 dependencies = [
@@ -1274,33 +1257,6 @@ dependencies = [
  "sqlx",
  "time",
  "tokio",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "realworld-user"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "argon2",
- "assert_matches",
- "async-trait",
- "axum",
- "dotenv",
- "entrait",
- "headers",
- "hex",
- "hmac",
- "jwt",
- "rand",
- "realworld-core",
- "realworld-db",
- "serde",
- "sha2",
- "time",
- "tokio",
- "unimock",
  "url",
  "uuid",
 ]

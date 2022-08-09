@@ -1,8 +1,6 @@
 [workspace]
 members = [
     "realworld_app",
-    "realworld_article",
     "realworld_core",
-    "realworld_db",
-    "realworld_user"
+    "realworld_db"
 ]
