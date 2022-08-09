@@ -10,6 +10,7 @@ use sqlx::PgPool;
 
 pub mod article;
 pub mod article_db;
+pub mod comment;
 pub mod comment_db;
 pub mod user;
 pub mod user_db;
@@ -72,6 +73,11 @@ impl realworld_core::user::repo::DelegateUserRepo<Self> for Db {
 #[cfg(test)]
 impl realworld_core::article::repo::DelegateArticleRepo<Self> for Db {
     type Target = article::repo::Repo;
+}
+
+#[cfg(test)]
+impl realworld_core::comment::repo::DelegateCommentRepo<Self> for Db {
+    type Target = comment::repo::Repo;
 }
 
 #[cfg(test)]

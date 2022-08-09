@@ -7,7 +7,7 @@ use crate::UserId;
 
 use uuid::Uuid;
 
-#[cfg_attr(test, derive(Debug, Eq, PartialEq, Clone))]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Comment {
     pub comment_id: i64,
     pub created_at: OffsetDateTime,
