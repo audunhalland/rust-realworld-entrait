@@ -3,6 +3,7 @@ use entrait::entrait_export as entrait;
 pub mod error;
 pub mod iter_util;
 pub mod timestamp;
+pub mod user;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UserId<I = uuid::Uuid>(pub I);
