@@ -75,7 +75,7 @@ mod tests {
     use super::*;
     use crate::test_util::*;
     use realworld_domain::user::repo::*;
-    use realworld_domain::UserId;
+    use realworld_domain::user::UserId;
     use user::*;
 
     use axum::http::{Request, StatusCode};

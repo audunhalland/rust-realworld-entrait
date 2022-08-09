@@ -2,7 +2,7 @@ use crate::GetDb;
 
 use realworld_domain::comment::repo::Comment;
 use realworld_domain::error::*;
-use realworld_domain::UserId;
+use realworld_domain::user::UserId;
 
 use futures::TryStreamExt;
 use uuid::Uuid;

@@ -1,5 +1,6 @@
+use super::UserId;
 use crate::error::{RwError, RwResult};
-use crate::{GetConfig, System, UserId};
+use crate::{GetConfig, System};
 
 use axum::http::HeaderValue;
 use axum::TypedHeader;

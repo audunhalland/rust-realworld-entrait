@@ -2,9 +2,9 @@ use crate::DbResultExt;
 use crate::GetDb;
 
 use realworld_domain::error::{RwError, RwResult};
+use realworld_domain::user::password::PasswordHash;
 use realworld_domain::user::repo::*;
-use realworld_domain::PasswordHash;
-use realworld_domain::UserId;
+use realworld_domain::user::UserId;
 
 use entrait::*;
 

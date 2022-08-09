@@ -6,10 +6,22 @@ pub mod repo;
 use auth::{Authenticate, Token};
 
 use crate::error::{RwError, RwResult};
-use crate::UserId;
 
 use entrait::entrait_export as entrait;
 use uuid::Uuid;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct UserId<I = uuid::Uuid>(pub I);
+
+impl<I> UserId<I> {
+    pub fn into_id(self) -> I {
+        self.0
+    }
+
+    pub fn some(self) -> UserId<Option<I>> {
+        UserId(Some(self.0))
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
@@ -174,8 +186,7 @@ async fn fetch_profile_inner(
 mod tests {
     use super::repo;
     use super::*;
-    use crate::PasswordHash;
-    use crate::UserId;
+    use crate::user::password::PasswordHash;
 
     use unimock::*;
 

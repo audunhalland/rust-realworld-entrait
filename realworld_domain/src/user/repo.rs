@@ -1,11 +1,12 @@
 use entrait::entrait_export as entrait;
 
+use super::password::PasswordHash;
+use super::UserId;
 use crate::error::RwResult;
-use crate::UserId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct User {
-    pub user_id: crate::UserId,
+    pub user_id: UserId,
     pub username: String,
     pub bio: String,
     pub image: Option<String>,
@@ -14,7 +15,7 @@ pub struct User {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Credentials {
     pub email: String,
-    pub password_hash: crate::PasswordHash,
+    pub password_hash: PasswordHash,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -24,7 +25,7 @@ pub struct Following(pub bool);
 pub struct UserUpdate<'a> {
     pub email: Option<&'a str>,
     pub username: Option<&'a str>,
-    pub password_hash: Option<crate::PasswordHash>,
+    pub password_hash: Option<PasswordHash>,
     pub bio: Option<&'a str>,
     pub image: Option<&'a str>,
 }
@@ -35,7 +36,7 @@ pub trait UserRepo {
         &self,
         username: &str,
         email: &str,
-        password_hash: crate::PasswordHash,
+        password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)>;
 
     async fn find_user_credentials_by_id(

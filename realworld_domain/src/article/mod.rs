@@ -5,7 +5,7 @@ use crate::iter_util::Single;
 use crate::timestamp::Timestamptz;
 use crate::user::auth::*;
 use crate::user::profile::Profile;
-use crate::UserId;
+use crate::user::UserId;
 use repo::ArticleRepo;
 
 use entrait::entrait_export as entrait;

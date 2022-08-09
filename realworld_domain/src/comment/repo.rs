@@ -3,7 +3,7 @@ use time::OffsetDateTime;
 use entrait::entrait_export as entrait;
 
 use crate::error::RwResult;
-use crate::UserId;
+use crate::user::UserId;
 
 use uuid::Uuid;
 

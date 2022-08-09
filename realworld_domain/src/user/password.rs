@@ -2,16 +2,19 @@ use crate::error::{RwError, RwResult};
 
 use anyhow::Context;
 use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHash};
+use argon2::Argon2;
 use entrait::entrait_export as entrait;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PasswordHash(pub String);
+
 #[entrait(pub HashPassword, no_deps)]
-async fn hash_password(password: String) -> RwResult<crate::PasswordHash> {
+async fn hash_password(password: String) -> RwResult<PasswordHash> {
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
-    tokio::task::spawn_blocking(move || -> RwResult<crate::PasswordHash> {
+    tokio::task::spawn_blocking(move || -> RwResult<PasswordHash> {
         let salt = SaltString::generate(rand::thread_rng());
-        Ok(crate::PasswordHash(
+        Ok(PasswordHash(
             argon2::PasswordHash::generate(Argon2::default(), password, salt.as_str())
                 .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
                 .to_string(),
@@ -22,7 +25,9 @@ async fn hash_password(password: String) -> RwResult<crate::PasswordHash> {
 }
 
 #[entrait(pub VerifyPassword, no_deps)]
-async fn verify_password(password: String, password_hash: crate::PasswordHash) -> RwResult<()> {
+async fn verify_password(password: String, password_hash: PasswordHash) -> RwResult<()> {
+    use argon2::password_hash::PasswordHash;
+
     tokio::task::spawn_blocking(move || -> RwResult<()> {
         let hash = PasswordHash::new(&password_hash.0)
             .map_err(|e| anyhow::anyhow!("invalid password hash: {}", e))?;
@@ -62,11 +67,8 @@ mod tests {
         );
 
         assert_matches!(
-            app.verify_password(
-                password.clone(),
-                crate::PasswordHash("invalid_hash".to_string())
-            )
-            .await,
+            app.verify_password(password.clone(), PasswordHash("invalid_hash".to_string()))
+                .await,
             Err(RwError::Anyhow(_))
         );
     }

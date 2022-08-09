@@ -4,7 +4,7 @@ use crate::GetDb;
 use realworld_domain::article::repo::*;
 use realworld_domain::error::{RwError, RwResult};
 use realworld_domain::timestamp::Timestamptz;
-use realworld_domain::UserId;
+use realworld_domain::user::UserId;
 
 use entrait::*;
 use futures::TryStreamExt;

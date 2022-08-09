@@ -1,4 +1,5 @@
-use crate::{error::RwResult, timestamp::Timestamptz, UserId};
+use super::UserId;
+use crate::{error::RwResult, timestamp::Timestamptz};
 
 use entrait::entrait_export as entrait;
 
