@@ -11,6 +11,7 @@ use sqlx::PgPool;
 pub mod article_db;
 pub mod comment_db;
 pub mod user_db;
+pub mod user_repo;
 
 #[derive(Clone)]
 pub struct Db {
@@ -60,6 +61,11 @@ where
             e => e,
         })
     }
+}
+
+#[cfg(test)]
+impl realworld_core::user::repo::DelegateUserRepo<Self> for Db {
+    type Target = user_repo::sqlx_user_repo::SqlxUserRepo;
 }
 
 #[cfg(test)]
