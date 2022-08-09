@@ -1,10 +1,10 @@
 use crate::DbResultExt;
 use crate::GetDb;
 
-use realworld_core::error::{RwError, RwResult};
-use realworld_core::user::repo::*;
-use realworld_core::PasswordHash;
-use realworld_core::UserId;
+use realworld_domain::error::{RwError, RwResult};
+use realworld_domain::user::repo::*;
+use realworld_domain::PasswordHash;
+use realworld_domain::UserId;
 
 use entrait::*;
 
@@ -12,7 +12,7 @@ use entrait::*;
 pub mod repo {
     use super::*;
 
-    #[derive_impl(realworld_core::user::repo::UserRepoImpl)]
+    #[derive_impl(realworld_domain::user::repo::UserRepoImpl)]
     pub struct Repo;
 
     pub async fn insert_user(
@@ -289,7 +289,7 @@ pub mod tests {
 
     #[entrait(pub InsertTestUser, unimock = false)]
     pub async fn insert_test_user(
-        db: &impl realworld_core::user::repo::UserRepo,
+        db: &impl realworld_domain::user::repo::UserRepo,
         user: TestNewUser,
     ) -> RwResult<(User, Credentials)> {
         db.insert_user(

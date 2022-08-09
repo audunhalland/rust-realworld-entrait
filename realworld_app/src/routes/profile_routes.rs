@@ -1,6 +1,6 @@
-use realworld_core::error::RwResult;
-use realworld_core::user;
-use realworld_core::user::auth::Token;
+use realworld_domain::error::RwResult;
+use realworld_domain::user;
+use realworld_domain::user::auth::Token;
 
 use axum::extract::{Extension, Path};
 use axum::routing::{get, post};

@@ -1,7 +1,7 @@
-use realworld_core::article;
-use realworld_core::comment;
-use realworld_core::error::RwResult;
-use realworld_core::user::auth::Token;
+use realworld_domain::article;
+use realworld_domain::comment;
+use realworld_domain::error::RwResult;
+use realworld_domain::user::auth::Token;
 
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{delete, get, post};

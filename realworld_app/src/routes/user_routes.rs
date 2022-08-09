@@ -1,6 +1,6 @@
-use realworld_core::error::RwResult;
-use realworld_core::user;
-use realworld_core::user::auth::Token;
+use realworld_domain::error::RwResult;
+use realworld_domain::user;
+use realworld_domain::user::auth::Token;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
@@ -74,8 +74,8 @@ where
 mod tests {
     use super::*;
     use crate::test_util::*;
-    use realworld_core::user::repo::*;
-    use realworld_core::UserId;
+    use realworld_domain::user::repo::*;
+    use realworld_domain::UserId;
     use user::*;
 
     use axum::http::{Request, StatusCode};
@@ -146,7 +146,7 @@ mod tests {
                     },
                 );
             }),
-            realworld_core::test::mock_system_and_config(),
+            realworld_domain::test::mock_system_and_config(),
         ]);
 
         let (status, user_body) = request_json::<UserBody<user::SignedUser>>(

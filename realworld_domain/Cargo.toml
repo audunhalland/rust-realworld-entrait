@@ -1,5 +1,5 @@
 [package]
-name = "realworld-core"
+name = "realworld-domain"
 version = "0.1.0"
 authors = ["Audun Halland <audun.halldand@pm.me>"]
 edition = "2021"

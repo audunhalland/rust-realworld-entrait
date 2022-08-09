@@ -1,8 +1,8 @@
 use crate::GetDb;
 
-use realworld_core::comment::repo::Comment;
-use realworld_core::error::*;
-use realworld_core::UserId;
+use realworld_domain::comment::repo::Comment;
+use realworld_domain::error::*;
+use realworld_domain::UserId;
 
 use futures::TryStreamExt;
 use uuid::Uuid;
@@ -128,7 +128,7 @@ pub mod repo {
         }
     }
 
-    #[derive_impl(realworld_core::comment::repo::CommentRepoImpl)]
+    #[derive_impl(realworld_domain::comment::repo::CommentRepoImpl)]
     pub struct Repo;
 }
 
@@ -139,8 +139,8 @@ mod tests {
     use crate::user::tests as user_db_test;
     use user_db_test::InsertTestUser;
 
-    use realworld_core::article::repo::ArticleRepo;
-    use realworld_core::comment::repo::CommentRepo;
+    use realworld_domain::article::repo::ArticleRepo;
+    use realworld_domain::comment::repo::CommentRepo;
 
     async fn insert_test_article(deps: &impl ArticleRepo, current_user: UserId) -> RwResult<()> {
         deps.insert_article(

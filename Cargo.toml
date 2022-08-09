@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "realworld_app",
-    "realworld_core",
-    "realworld_db"
+    "realworld_domain",
+    "realworld_db",
+    "realworld_app"
 ]

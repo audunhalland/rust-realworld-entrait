@@ -19,26 +19,26 @@ impl realworld_db::GetDb for App {
     }
 }
 
-impl realworld_core::System for App {
+impl realworld_domain::System for App {
     fn get_current_time(&self) -> time::OffsetDateTime {
         OffsetDateTime::now_utc()
     }
 }
 
-impl realworld_core::GetConfig for App {
+impl realworld_domain::GetConfig for App {
     fn get_jwt_signing_key(&self) -> &hmac::Hmac<sha2::Sha384> {
         &self.config.jwt_signing_key.0
     }
 }
 
-impl realworld_core::user::repo::DelegateUserRepo<Self> for App {
+impl realworld_domain::user::repo::DelegateUserRepo<Self> for App {
     type Target = realworld_db::user::repo::Repo;
 }
 
-impl realworld_core::article::repo::DelegateArticleRepo<Self> for App {
+impl realworld_domain::article::repo::DelegateArticleRepo<Self> for App {
     type Target = realworld_db::article::repo::Repo;
 }
 
-impl realworld_core::comment::repo::DelegateCommentRepo<Self> for App {
+impl realworld_domain::comment::repo::DelegateCommentRepo<Self> for App {
     type Target = realworld_db::comment::repo::Repo;
 }

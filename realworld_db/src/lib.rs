@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "use-associated-future", feature(generic_associated_types))]
 #![cfg_attr(feature = "use-associated-future", feature(type_alias_impl_trait))]
 
-use realworld_core::error::RwError;
+use realworld_domain::error::RwError;
 
 use anyhow::Context;
 use entrait::entrait_export as entrait;
@@ -63,17 +63,17 @@ where
 }
 
 #[cfg(test)]
-impl realworld_core::user::repo::DelegateUserRepo<Self> for Db {
+impl realworld_domain::user::repo::DelegateUserRepo<Self> for Db {
     type Target = user::repo::Repo;
 }
 
 #[cfg(test)]
-impl realworld_core::article::repo::DelegateArticleRepo<Self> for Db {
+impl realworld_domain::article::repo::DelegateArticleRepo<Self> for Db {
     type Target = article::repo::Repo;
 }
 
 #[cfg(test)]
-impl realworld_core::comment::repo::DelegateCommentRepo<Self> for Db {
+impl realworld_domain::comment::repo::DelegateCommentRepo<Self> for Db {
     type Target = comment::repo::Repo;
 }
 

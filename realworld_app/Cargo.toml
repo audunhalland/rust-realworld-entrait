@@ -13,7 +13,7 @@ use-associated-future = ["entrait/use-associated-future", "realworld-db/use-asso
 
 [dependencies]
 # realworld
-realworld-core = { path = "../realworld_core" }
+realworld-domain = { path = "../realworld_domain" }
 realworld-db = { path = "../realworld_db" }
 
 # core

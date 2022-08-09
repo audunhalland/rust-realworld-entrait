@@ -1,10 +1,10 @@
 use crate::DbResultExt;
 use crate::GetDb;
 
-use realworld_core::article::repo::*;
-use realworld_core::error::{RwError, RwResult};
-use realworld_core::timestamp::Timestamptz;
-use realworld_core::UserId;
+use realworld_domain::article::repo::*;
+use realworld_domain::error::{RwError, RwResult};
+use realworld_domain::timestamp::Timestamptz;
+use realworld_domain::UserId;
 
 use entrait::*;
 use futures::TryStreamExt;
@@ -14,7 +14,7 @@ use uuid::Uuid;
 pub mod repo {
     use super::*;
 
-    #[derive_impl(realworld_core::article::repo::ArticleRepoImpl)]
+    #[derive_impl(realworld_domain::article::repo::ArticleRepoImpl)]
     pub struct Repo;
 
     pub async fn select_articles(
@@ -306,7 +306,7 @@ mod tests {
     use crate::user::tests as user_db_test;
     use user_db_test::InsertTestUser;
 
-    use realworld_core::iter_util::Single;
+    use realworld_domain::iter_util::Single;
 
     use assert_matches::*;
 
