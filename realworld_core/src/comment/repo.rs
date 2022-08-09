@@ -21,20 +21,20 @@ pub struct Comment {
 
 #[entrait(CommentRepoImpl, delegate_by = DelegateCommentRepo)]
 pub trait CommentRepo {
-    async fn list(
+    async fn list_comments(
         &self,
         current_user: UserId<Option<Uuid>>,
         article_id: uuid::Uuid,
     ) -> RwResult<Vec<Comment>>;
 
-    async fn insert(
+    async fn insert_comment(
         &self,
         current_user: UserId,
         article_slug: &str,
         body: &str,
     ) -> RwResult<Comment>;
 
-    async fn delete(
+    async fn delete_comment(
         &self,
         current_user: UserId,
         article_slug: &str,

@@ -47,9 +47,9 @@ pub mod api {
         slug: &str,
     ) -> RwResult<Vec<Comment>> {
         let current_user_id = deps.opt_authenticate(token)?;
-        let article_id = deps.fetch_id(slug).await?;
+        let article_id = deps.fetch_article_id(slug).await?;
         Ok(deps
-            .list(current_user_id, article_id)
+            .list_comments(current_user_id, article_id)
             .await?
             .into_iter()
             .map(Into::into)
@@ -63,7 +63,7 @@ pub mod api {
         body: &str,
     ) -> RwResult<Comment> {
         let current_user_id = deps.authenticate(token)?;
-        deps.insert(current_user_id, slug, body)
+        deps.insert_comment(current_user_id, slug, body)
             .await
             .map(Into::into)
     }
@@ -75,6 +75,6 @@ pub mod api {
         comment_id: i64,
     ) -> RwResult<()> {
         let current_user_id = deps.authenticate(token)?;
-        deps.delete(current_user_id, slug, comment_id).await
+        deps.delete_comment(current_user_id, slug, comment_id).await
     }
 }

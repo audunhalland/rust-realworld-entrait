@@ -17,7 +17,7 @@ pub mod repo {
     #[derive_impl(realworld_core::article::repo::ArticleRepoImpl)]
     pub struct Repo;
 
-    pub async fn select(
+    pub async fn select_articles(
         deps: &impl GetDb,
         current_user: UserId<Option<Uuid>>,
         filter: Filter<'_>,
@@ -94,7 +94,7 @@ pub mod repo {
         Ok(articles)
     }
 
-    pub async fn fetch_id(deps: &impl GetDb, slug: &str) -> RwResult<Uuid> {
+    pub async fn fetch_article_id(deps: &impl GetDb, slug: &str) -> RwResult<Uuid> {
         sqlx::query_scalar!(
             // language=PostgreSQL
             "SELECT article_id FROM app.article WHERE slug = $1",
@@ -105,7 +105,7 @@ pub mod repo {
         .ok_or(RwError::ArticleNotFound)
     }
 
-    pub async fn insert(
+    pub async fn insert_article(
         deps: &impl GetDb,
         UserId(user_id): UserId,
         slug: &str,
@@ -159,7 +159,7 @@ pub mod repo {
         Ok(article)
     }
 
-    pub async fn update(
+    pub async fn update_article(
         deps: &impl GetDb,
         UserId(user_id): UserId,
         slug: &str,
@@ -207,7 +207,11 @@ pub mod repo {
         Ok(())
     }
 
-    pub async fn delete(deps: &impl GetDb, UserId(user_id): UserId, slug: &str) -> RwResult<()> {
+    pub async fn delete_article(
+        deps: &impl GetDb,
+        UserId(user_id): UserId,
+        slug: &str,
+    ) -> RwResult<()> {
         let result = sqlx::query!(
             // I like to use raw strings for most queries mainly because CLion doesn't try
             // to escape newlines.
@@ -299,7 +303,7 @@ pub mod repo {
 mod tests {
     use super::*;
     use crate::create_test_db;
-    use crate::user_db::tests as user_db_test;
+    use crate::user::tests as user_db_test;
     use user_db_test::InsertTestUser;
 
     use realworld_core::iter_util::Single;
@@ -312,7 +316,7 @@ mod tests {
         current_user: UserId<Option<Uuid>>,
         filter: Filter<'_>,
     ) -> Article {
-        db.select(current_user, filter)
+        db.select_articles(current_user, filter)
             .await
             .unwrap()
             .into_iter()
@@ -325,7 +329,7 @@ mod tests {
         db: &impl ArticleRepo,
         filter: Filter<'_>,
     ) -> Option<String> {
-        db.select(UserId(None), filter)
+        db.select_articles(UserId(None), filter)
             .await
             .unwrap()
             .into_iter()
@@ -340,7 +344,7 @@ mod tests {
         let (user, _) = db.insert_test_user(Default::default()).await?;
 
         let inserted_article = db
-            .insert(
+            .insert_article(
                 user.user_id,
                 "slug",
                 "title",
@@ -377,7 +381,7 @@ mod tests {
         assert_eq!(inserted_article.author_image, user.image);
         assert_eq!(inserted_article.following_author, false);
 
-        db.update(
+        db.update_article(
             user.user_id,
             "slug",
             ArticleUpdate {
@@ -404,10 +408,10 @@ mod tests {
         assert_eq!(modified_article.description, "desc2");
         assert_eq!(modified_article.body, "body2");
 
-        db.delete(user.user_id, "slug2").await?;
+        db.delete_article(user.user_id, "slug2").await?;
 
         assert!(db
-            .select(
+            .select_articles(
                 UserId(None),
                 Filter {
                     slug: Some("slug2"),
@@ -426,7 +430,7 @@ mod tests {
         let (user1, _) = db.insert_test_user(Default::default()).await?;
         let (user2, _) = db.insert_test_user(user_db_test::other_user()).await?;
 
-        db.insert(
+        db.insert_article(
             user1.user_id,
             "slug1",
             "title1",
@@ -436,7 +440,7 @@ mod tests {
         )
         .await?;
 
-        db.insert(
+        db.insert_article(
             user2.user_id,
             "slug2",
             "title2",
@@ -509,7 +513,7 @@ mod tests {
         );
 
         assert_eq!(
-            db.select(
+            db.select_articles(
                 UserId(None),
                 Filter {
                     offset: Some(1),
@@ -529,7 +533,7 @@ mod tests {
         let db = create_test_db().await;
         let (user, _) = db.insert_test_user(Default::default()).await?;
 
-        db.insert(
+        db.insert_article(
             user.user_id,
             "slug",
             "title",
@@ -540,7 +544,7 @@ mod tests {
         .await?;
 
         let error = db
-            .update(UserId(Uuid::new_v4()), "slug", Default::default())
+            .update_article(UserId(Uuid::new_v4()), "slug", Default::default())
             .await
             .expect_err("Should error");
         assert_matches!(error, RwError::Forbidden);

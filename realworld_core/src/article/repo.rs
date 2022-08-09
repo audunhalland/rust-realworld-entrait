@@ -43,15 +43,15 @@ pub struct ArticleUpdate<'a> {
 
 #[entrait(ArticleRepoImpl, delegate_by = DelegateArticleRepo)]
 pub trait ArticleRepo {
-    async fn select(
+    async fn select_articles(
         &self,
         current_user: UserId<Option<uuid::Uuid>>,
         filter: Filter<'_>,
     ) -> RwResult<Vec<Article>>;
 
-    async fn fetch_id(&self, slug: &str) -> RwResult<uuid::Uuid>;
+    async fn fetch_article_id(&self, slug: &str) -> RwResult<uuid::Uuid>;
 
-    async fn insert(
+    async fn insert_article(
         &self,
         user_id: UserId,
         slug: &str,
@@ -61,9 +61,14 @@ pub trait ArticleRepo {
         tag_list: &[String],
     ) -> RwResult<Article>;
 
-    async fn update(&self, user_id: UserId, slug: &str, up: ArticleUpdate<'_>) -> RwResult<()>;
+    async fn update_article(
+        &self,
+        user_id: UserId,
+        slug: &str,
+        up: ArticleUpdate<'_>,
+    ) -> RwResult<()>;
 
-    async fn delete(&self, user_id: UserId, slug: &str) -> RwResult<()>;
+    async fn delete_article(&self, user_id: UserId, slug: &str) -> RwResult<()>;
 
     async fn insert_favorite(&self, user_id: UserId, slug: &str) -> RwResult<()>;
 

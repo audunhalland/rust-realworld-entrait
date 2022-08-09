@@ -9,11 +9,8 @@ use sqlx::error::DatabaseError;
 use sqlx::PgPool;
 
 pub mod article;
-pub mod article_db;
 pub mod comment;
-pub mod comment_db;
 pub mod user;
-pub mod user_db;
 
 #[derive(Clone)]
 pub struct Db {

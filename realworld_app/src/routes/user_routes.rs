@@ -74,8 +74,8 @@ where
 mod tests {
     use super::*;
     use crate::test_util::*;
+    use realworld_core::user::repo::*;
     use realworld_core::UserId;
-    use realworld_db::user_db;
     use user::*;
 
     use axum::http::{Request, StatusCode};
@@ -128,17 +128,17 @@ mod tests {
     #[tokio::test]
     async fn integration_test_create_user() {
         let deps = spy([
-            user_db::insert_user::Fn.stub(|each| {
+            UserRepo__insert_user.stub(|each| {
                 each.call(matching!("username", "email", _)).answers(
                     |(username, email, password_hash)| {
                         Ok((
-                            user_db::User {
+                            repo::User {
                                 user_id: UserId(test_uuid()),
                                 username: username.to_string(),
                                 bio: "bio".to_string(),
                                 image: None,
                             },
-                            user_db::Credentials {
+                            repo::Credentials {
                                 email: email.to_string(),
                                 password_hash,
                             },

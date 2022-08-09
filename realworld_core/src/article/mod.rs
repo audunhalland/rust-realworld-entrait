@@ -96,7 +96,7 @@ pub mod api {
         query: ListArticlesQuery,
     ) -> RwResult<Vec<Article>> {
         let current_user_id = deps.opt_authenticate(token)?;
-        deps.select(
+        deps.select_articles(
             current_user_id,
             repo::Filter {
                 slug: None,
@@ -118,7 +118,7 @@ pub mod api {
         query: FeedArticlesQuery,
     ) -> RwResult<Vec<Article>> {
         let current_user_id = deps.authenticate(token)?;
-        deps.select(
+        deps.select_articles(
             current_user_id.some(),
             repo::Filter {
                 slug: None,
@@ -140,7 +140,7 @@ pub mod api {
         slug: &str,
     ) -> RwResult<Article> {
         let current_user_id = deps.opt_authenticate(token)?;
-        deps.select(
+        deps.select_articles(
             current_user_id,
             repo::Filter {
                 slug: Some(slug),
@@ -161,7 +161,7 @@ pub mod api {
     ) -> RwResult<Article> {
         let current_user_id = deps.authenticate(token)?;
         let slug = slugify(&article.title);
-        deps.insert(
+        deps.insert_article(
             current_user_id,
             &slug,
             &article.title,
@@ -182,7 +182,7 @@ pub mod api {
         let current_user_id = deps.authenticate(token)?;
         let new_slug = article_update.title.as_deref().map(slugify);
 
-        deps.update(
+        deps.update_article(
             current_user_id,
             slug,
             repo::ArticleUpdate {
@@ -203,7 +203,7 @@ pub mod api {
         slug: &str,
     ) -> RwResult<()> {
         let current_user_id = deps.authenticate(token)?;
-        deps.delete(current_user_id, slug).await
+        deps.delete_article(current_user_id, slug).await
     }
 
     pub async fn favorite_article(
@@ -226,7 +226,7 @@ pub mod api {
         current_user_id: UserId,
         slug: &str,
     ) -> RwResult<Article> {
-        deps.select(
+        deps.select_articles(
             current_user_id.some(),
             repo::Filter {
                 slug: Some(slug),
@@ -320,7 +320,7 @@ mod tests {
     async fn create_article_should_slugify() {
         let deps = mock([
             mock_authenticate(),
-            repo::ArticleRepo__insert
+            repo::ArticleRepo__insert_article
                 .next_call(matching!(UserId(_), "my-title", _, _, _, _))
                 .answers(|_| Ok(test_db_article()))
                 .once()
@@ -344,7 +344,7 @@ mod tests {
     async fn get_article_empty_result_should_produce_not_found_error() {
         let deps = mock([
             mock_authenticate_anonymous(),
-            repo::ArticleRepo__select
+            repo::ArticleRepo__select_articles
                 .next_call(matching!(
                     UserId(None),
                     repo::Filter {
@@ -366,7 +366,7 @@ mod tests {
     async fn update_article_should_update_slug() {
         let deps = mock([
             mock_authenticate(),
-            repo::ArticleRepo__update
+            repo::ArticleRepo__update_article
                 .next_call(matching!(
                     UserId(_),
                     "slug",
@@ -380,7 +380,7 @@ mod tests {
                 .answers(|_| Ok(()))
                 .once()
                 .in_order(),
-            repo::ArticleRepo__select
+            repo::ArticleRepo__select_articles
                 .next_call(matching!(
                     UserId(Some(_)),
                     repo::Filter {

@@ -13,7 +13,7 @@ use entrait::*;
 pub mod repo {
     use super::*;
 
-    pub async fn list(
+    pub async fn list_comments(
         deps: &impl GetDb,
         current_user: UserId<Option<Uuid>>,
         article_id: Uuid,
@@ -47,7 +47,7 @@ pub mod repo {
         Ok(comments)
     }
 
-    pub async fn insert(
+    pub async fn insert_comment(
         deps: &impl GetDb,
         current_user: UserId,
         article_slug: &str,
@@ -86,7 +86,7 @@ pub mod repo {
         Ok(comment)
     }
 
-    pub async fn delete(
+    pub async fn delete_comment(
         deps: &impl GetDb,
         current_user: UserId,
         article_slug: &str,
@@ -135,18 +135,15 @@ pub mod repo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::article_db::FetchId;
     use crate::create_test_db;
-    use crate::user_db::tests as user_db_test;
+    use crate::user::tests as user_db_test;
     use user_db_test::InsertTestUser;
 
+    use realworld_core::article::repo::ArticleRepo;
     use realworld_core::comment::repo::CommentRepo;
 
-    async fn insert_test_article(
-        deps: &impl crate::article_db::Insert,
-        current_user: UserId,
-    ) -> RwResult<()> {
-        deps.insert(
+    async fn insert_test_article(deps: &impl ArticleRepo, current_user: UserId) -> RwResult<()> {
+        deps.insert_article(
             current_user,
             "slug",
             "title",
@@ -163,21 +160,28 @@ mod tests {
         let db = create_test_db().await;
         let (user, _) = db.insert_test_user(Default::default()).await?;
         insert_test_article(&db, user.user_id).await?;
-        let article_id = db.fetch_id("slug").await?;
+        let article_id = db.fetch_article_id("slug").await?;
 
-        let inserted_comment = db.insert(user.user_id, "slug", "body").await?;
+        let inserted_comment = db.insert_comment(user.user_id, "slug", "body").await?;
 
         assert_eq!(
-            db.list(user.user_id.some(), article_id).await?,
+            db.list_comments(user.user_id.some(), article_id).await?,
             &[inserted_comment.clone()]
         );
 
-        assert_eq!(db.list(user.user_id.some(), Uuid::new_v4()).await?, &[]);
+        assert_eq!(
+            db.list_comments(user.user_id.some(), Uuid::new_v4())
+                .await?,
+            &[]
+        );
 
-        db.delete(user.user_id, "slug", inserted_comment.comment_id)
+        db.delete_comment(user.user_id, "slug", inserted_comment.comment_id)
             .await?;
 
-        assert_eq!(db.list(user.user_id.some(), article_id).await?, &[]);
+        assert_eq!(
+            db.list_comments(user.user_id.some(), article_id).await?,
+            &[]
+        );
 
         Ok(())
     }
