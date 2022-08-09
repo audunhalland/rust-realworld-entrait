@@ -1,5 +1,6 @@
 use realworld_core::error::RwResult;
-use realworld_user::auth::Token;
+use realworld_core::user;
+use realworld_core::user::auth::Token;
 
 use axum::extract::Extension;
 use axum::routing::{get, post};
@@ -14,10 +15,10 @@ pub struct UserRoutes<D>(std::marker::PhantomData<D>);
 
 impl<D> UserRoutes<D>
 where
-    D: realworld_user::Create
-        + realworld_user::Login
-        + realworld_user::FetchCurrent
-        + realworld_user::Update
+    D: user::Create
+        + user::Login
+        + user::FetchCurrent
+        + user::Update
         + Sized
         + Clone
         + Send
@@ -33,8 +34,8 @@ where
 
     async fn create(
         Extension(deps): Extension<D>,
-        Json(body): Json<UserBody<realworld_user::NewUser>>,
-    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
+        Json(body): Json<UserBody<user::NewUser>>,
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: deps.create(body.user).await?,
         }))
@@ -42,8 +43,8 @@ where
 
     async fn login(
         Extension(deps): Extension<D>,
-        Json(body): Json<UserBody<realworld_user::LoginUser>>,
-    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
+        Json(body): Json<UserBody<user::LoginUser>>,
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: deps.login(body.user).await?,
         }))
@@ -52,7 +53,7 @@ where
     async fn current_user(
         Extension(deps): Extension<D>,
         token: Token,
-    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: deps.fetch_current(token).await?,
         }))
@@ -61,8 +62,8 @@ where
     async fn update_user(
         Extension(deps): Extension<D>,
         token: Token,
-        Json(body): Json<UserBody<realworld_user::UserUpdate>>,
-    ) -> RwResult<Json<UserBody<realworld_user::SignedUser>>> {
+        Json(body): Json<UserBody<user::UserUpdate>>,
+    ) -> RwResult<Json<UserBody<user::SignedUser>>> {
         Ok(Json(UserBody {
             user: deps.update(token, body.user).await?,
         }))
@@ -75,7 +76,7 @@ mod tests {
     use crate::test_util::*;
     use realworld_core::UserId;
     use realworld_db::user_db;
-    use realworld_user::*;
+    use user::*;
 
     use axum::http::{Request, StatusCode};
     use unimock::*;
@@ -108,10 +109,10 @@ mod tests {
                 .in_order(),
         ));
 
-        let (status, _) = request_json::<UserBody<realworld_user::SignedUser>>(
+        let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
             Request::post("/users").with_json_body(UserBody {
-                user: realworld_user::NewUser {
+                user: user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
                     password: "password".to_string(),
@@ -148,10 +149,10 @@ mod tests {
             realworld_core::test::mock_system_and_config(),
         ]);
 
-        let (status, user_body) = request_json::<UserBody<realworld_user::SignedUser>>(
+        let (status, user_body) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
             Request::post("/users").with_json_body(UserBody {
-                user: realworld_user::NewUser {
+                user: user::NewUser {
                     username: "username".to_string(),
                     email: "email".to_string(),
                     password: "password".to_string(),
@@ -193,7 +194,7 @@ mod tests {
                 .in_order(),
         ));
 
-        let (status, _) = request_json::<UserBody<realworld_user::SignedUser>>(
+        let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
             Request::get("/user")
                 .header("Authorization", "Token 123")

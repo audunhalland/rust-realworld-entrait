@@ -1,30 +1,31 @@
-use realworld_article;
+use realworld_core::article;
+use realworld_core::comment;
 use realworld_core::error::RwResult;
-use realworld_user::auth::Token;
+use realworld_core::user::auth::Token;
 
 use axum::extract::{Extension, Path, Query};
 use axum::routing::{delete, get, post};
 use axum::Json;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-struct ArticleBody<T = realworld_article::Article> {
+struct ArticleBody<T = article::Article> {
     article: T,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 // Just trying this out to avoid the tautology of `ArticleBody<Article>`
 struct MultipleArticlesBody {
-    articles: Vec<realworld_article::Article>,
+    articles: Vec<article::Article>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-struct CommentBody<T = realworld_article::Comment> {
+struct CommentBody<T = comment::Comment> {
     comment: T,
 }
 
 #[derive(serde::Serialize)]
 struct MultipleCommentsBody {
-    comments: Vec<realworld_article::Comment>,
+    comments: Vec<comment::Comment>,
 }
 
 #[derive(serde::Deserialize)]
@@ -36,7 +37,7 @@ pub struct ArticleRoutes<D>(std::marker::PhantomData<D>);
 
 impl<D: Sized + Clone + Send + Sync + 'static> ArticleRoutes<D>
 where
-    D: realworld_article::Api,
+    D: article::Api + comment::Api,
 {
     pub fn router() -> axum::Router {
         axum::Router::new().nest(
@@ -65,7 +66,7 @@ where
     async fn list_articles(
         Extension(deps): Extension<D>,
         token: Option<Token>,
-        Query(query): Query<realworld_article::ListArticlesQuery>,
+        Query(query): Query<article::ListArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
         Ok(Json(MultipleArticlesBody {
             articles: deps.list_articles(token, query).await?,
@@ -75,7 +76,7 @@ where
     async fn feed_articles(
         Extension(deps): Extension<D>,
         token: Token,
-        Query(query): Query<realworld_article::FeedArticlesQuery>,
+        Query(query): Query<article::FeedArticlesQuery>,
     ) -> RwResult<Json<MultipleArticlesBody>> {
         Ok(Json(MultipleArticlesBody {
             articles: deps.feed_articles(token, query).await?,
@@ -95,8 +96,8 @@ where
     async fn create_article(
         Extension(deps): Extension<D>,
         token: Token,
-        Json(body): Json<ArticleBody<realworld_article::ArticleCreate>>,
-    ) -> RwResult<Json<ArticleBody<realworld_article::Article>>> {
+        Json(body): Json<ArticleBody<article::ArticleCreate>>,
+    ) -> RwResult<Json<ArticleBody<article::Article>>> {
         Ok(Json(ArticleBody {
             article: deps.create_article(token, body.article).await?,
         }))
@@ -106,7 +107,7 @@ where
         Extension(deps): Extension<D>,
         token: Token,
         Path(slug): Path<String>,
-        Json(body): Json<ArticleBody<realworld_article::ArticleUpdate>>,
+        Json(body): Json<ArticleBody<article::ArticleUpdate>>,
     ) -> RwResult<Json<ArticleBody>> {
         Ok(Json(ArticleBody {
             article: deps.update_article(token, &slug, body.article).await?,
@@ -189,9 +190,9 @@ mod tests {
     #[tokio::test]
     async fn list_articles_should_accept_no_auth() {
         let deps = mock(Some(
-            realworld_article::api::list_articles::Fn
+            article::api::list_articles::Fn
                 .next_call(matching! {
-                    (None, query) if query == &realworld_article::ListArticlesQuery::default()
+                    (None, query) if query == &article::ListArticlesQuery::default()
                 })
                 .answers(|_| Ok(vec![]))
                 .once()

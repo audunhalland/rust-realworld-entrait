@@ -8,7 +8,7 @@ use crate::user::auth::Token;
 use crate::user::profile::Profile;
 use repo::CommentRepo;
 
-use entrait::*;
+use entrait::entrait_export as entrait;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]

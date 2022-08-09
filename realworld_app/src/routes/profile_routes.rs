@@ -1,5 +1,6 @@
 use realworld_core::error::RwResult;
-use realworld_user::auth::Token;
+use realworld_core::user;
+use realworld_core::user::auth::Token;
 
 use axum::extract::{Extension, Path};
 use axum::routing::{get, post};
@@ -7,20 +8,14 @@ use axum::Json;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct ProfileBody {
-    profile: realworld_user::profile::Profile,
+    profile: user::profile::Profile,
 }
 
 pub struct ProfileRoutes<D>(std::marker::PhantomData<D>);
 
 impl<D> ProfileRoutes<D>
 where
-    D: realworld_user::FetchProfile
-        + realworld_user::Follow
-        + Sized
-        + Clone
-        + Send
-        + Sync
-        + 'static,
+    D: user::FetchProfile + user::Follow + Sized + Clone + Send + Sync + 'static,
 {
     pub fn router() -> axum::Router {
         axum::Router::new()

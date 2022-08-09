@@ -30,3 +30,15 @@ impl realworld_core::GetConfig for App {
         &self.config.jwt_signing_key.0
     }
 }
+
+impl realworld_core::user::repo::DelegateUserRepo<Self> for App {
+    type Target = realworld_db::user::repo::Repo;
+}
+
+impl realworld_core::article::repo::DelegateArticleRepo<Self> for App {
+    type Target = realworld_db::article::repo::Repo;
+}
+
+impl realworld_core::comment::repo::DelegateCommentRepo<Self> for App {
+    type Target = realworld_db::comment::repo::Repo;
+}
