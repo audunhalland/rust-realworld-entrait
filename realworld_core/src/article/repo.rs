@@ -2,7 +2,7 @@ use crate::{error::RwResult, timestamp::Timestamptz, UserId};
 
 use entrait::entrait_export as entrait;
 
-#[cfg_attr(test, derive(Eq, PartialEq, Debug))]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Article {
     pub slug: String,
     pub title: String,

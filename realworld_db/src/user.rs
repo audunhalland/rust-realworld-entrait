@@ -9,8 +9,11 @@ use realworld_core::UserId;
 use entrait::*;
 
 #[entrait_impl]
-pub mod sqlx_user_repo {
+pub mod repo {
     use super::*;
+
+    #[derive_impl(realworld_core::user::repo::UserRepoImpl)]
+    pub struct Repo;
 
     pub async fn insert_user(
         deps: &impl GetDb,
@@ -251,9 +254,6 @@ pub mod sqlx_user_repo {
             Ok(())
         }
     }
-
-    #[derive_impl(realworld_core::user::repo::UserRepoImpl)]
-    pub struct SqlxUserRepo;
 }
 
 #[cfg(test)]
