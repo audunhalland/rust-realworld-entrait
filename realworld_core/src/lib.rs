@@ -1,5 +1,7 @@
 use entrait::entrait_export as entrait;
 
+pub mod article;
+pub mod comment;
 pub mod error;
 pub mod iter_util;
 pub mod timestamp;
