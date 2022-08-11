@@ -16,7 +16,7 @@ The crate is abstract over any kind of external systems the resulting applicatio
     like database/storage, application environment (like clock) and specific configuration parameters.
 All such abstractions are defined as traits that must be implemented outside this crate.
 
-Example of potentially interesting code in this crate is
+Examples of potentially interesting code in this crate is
     the [user module](realworld_domain/src/user/mod.rs),
     its [repository abstraction](realworld_domain/src/user/repo.rs),
     or the [system abstractions](realworld_domain/src/lib.rs).
