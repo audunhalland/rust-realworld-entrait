@@ -16,12 +16,21 @@ The crate is abstract over any kind of external systems the resulting applicatio
     like database/storage, application environment (like clock) and specific configuration parameters.
 All such abstractions are defined as traits that must be implemented outside this crate.
 
+Example of potentially interesting code in this crate is
+    the [user module](realworld_domain/src/user/mod.rs),
+    its [repository abstraction](realworld_domain/src/user/repo.rs),
+    or the [system abstractions](realworld_domain/src/lib.rs).
+
 ### `realworld_db`
 This crate implements _repository_ traits from `realworld_domain`, and re-exports those for use by an application.
 
-### `realworld_app`
-This crate consists of a library to wire things together into a running backend application, and a small `main` crate that produces a running executable.
+[This is how](realworld_db/src/user.rs) the user repository implementation looks like.
 
-It contains the central `App` data structure and Axum HTTP handlers.
+### `realworld_app`
+This crate contains the [main function](realworld_app/src/main.rs) and compiles into an executable binary.
+
+It contains the central [`App` data structure](realworld_app/src/app.rs) that is used with entrait, and [Axum HTTP handlers](realworld_app/src/routes/mod.rs).
 
 The `App` implements various traits from `realworld_domain` to make them work together.
+
+The crate contains various [unit tests](realworld_app/src/routes/user_routes.rs) for HTTP handlers. Yes, pure unit tests!
