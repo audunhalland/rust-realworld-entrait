@@ -23,9 +23,9 @@ pub mod repo {
         filter: Filter<'_>,
     ) -> RwResult<Vec<Article>> {
         let articles: Vec<Article> = sqlx::query_as!(
-        Article,
-        // language=PostgreSQL
-        r#"
+            Article,
+            // language=PostgreSQL
+            r#"
             SELECT
                 slug,
                 title,
@@ -77,16 +77,16 @@ pub mod repo {
             ORDER BY article.created_at DESC
             LIMIT $7
             OFFSET $8
-        "#,
-        current_user.0,
-        filter.slug,
-        filter.tag,
-        filter.author,
-        filter.favorited_by,
-        filter.followed_by.map(UserId::into_id),
-        filter.limit.unwrap_or(20),
-        filter.offset.unwrap_or(0)
-    )
+            "#,
+            current_user.0,
+            filter.slug,
+            filter.tag,
+            filter.author,
+            filter.favorited_by,
+            filter.followed_by.map(UserId::into_id),
+            filter.limit.unwrap_or(20),
+            filter.offset.unwrap_or(0)
+        )
         .fetch(&deps.get_db().pg_pool)
         .try_collect::<Vec<_>>()
         .await?;
@@ -142,7 +142,7 @@ pub mod repo {
                 false "following_author!"
             FROM inserted_article
             INNER JOIN app.user ON user_id = $1
-        "#,
+            "#,
             user_id,
             slug,
             title,
@@ -191,7 +191,7 @@ pub mod repo {
                 description = COALESCE($3, description),
                 body = COALESCE($4, body)
             WHERE article_id = $5
-        "#,
+            "#,
             up.slug,
             up.title,
             up.description,
@@ -227,7 +227,7 @@ pub mod repo {
                 EXISTS(SELECT 1 FROM app.article WHERE slug = $1) "existed!",
                 -- This will only be `true` if we actually deleted the article.
                 EXISTS(SELECT 1 FROM deleted_article) "deleted!"
-        "#,
+            "#,
             slug,
             user_id
         )
@@ -260,7 +260,7 @@ pub mod repo {
                 ON CONFLICT DO NOTHING
             )
             SELECT article_id FROM selected_article
-        "#,
+            "#,
             slug,
             user_id
         )
@@ -287,7 +287,7 @@ pub mod repo {
                 AND user_id = $2
             )
             SELECT article_id FROM selected_article
-        "#,
+            "#,
             slug,
             user_id
         )

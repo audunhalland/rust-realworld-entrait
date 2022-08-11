@@ -21,21 +21,21 @@ pub mod repo {
         let comments = sqlx::query_as!(
         Comment,
         r#"
-            SELECT
-                comment_id,
-                comment.created_at,
-                comment.updated_at,
-                comment.body,
-                author.username author_username,
-                author.bio author_bio,
-                author.image author_image,
-                exists(
-                    SELECT 1 FROM app.follow WHERE followed_user_id = author.user_id AND following_user_id = $1
-                ) "following_author!"
-            FROM app.article_comment comment
-            INNER JOIN app.user author using (user_id)
-            WHERE article_id = $2
-            ORDER by created_at
+        SELECT
+            comment_id,
+            comment.created_at,
+            comment.updated_at,
+            comment.body,
+            author.username author_username,
+            author.bio author_bio,
+            author.image author_image,
+            exists(
+                SELECT 1 FROM app.follow WHERE followed_user_id = author.user_id AND following_user_id = $1
+            ) "following_author!"
+        FROM app.article_comment comment
+        INNER JOIN app.user author using (user_id)
+        WHERE article_id = $2
+        ORDER by created_at
         "#,
         current_user.0,
         article_id
@@ -74,7 +74,7 @@ pub mod repo {
                 false "following_author!"
             FROM inserted_comment comment
             INNER JOIN app.user author ON user_id = $1
-        "#,
+            "#,
             current_user.0,
             body,
             article_slug,
@@ -111,7 +111,7 @@ pub mod repo {
                     WHERE comment_id = $1 AND slug = $2
                 ) "existed!",
                 EXISTS(SELECT 1 FROM deleted_comment) "deleted!"
-        "#,
+            "#,
             comment_id,
             article_slug,
             current_user.0

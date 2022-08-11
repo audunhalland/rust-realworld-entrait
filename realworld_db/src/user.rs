@@ -22,15 +22,15 @@ pub mod repo {
         password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)> {
         let id = sqlx::query_scalar!(
-        r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
-        username,
-        email,
-        password_hash.0
-    )
-    .fetch_one(&deps.get_db().pg_pool)
-    .await
-    .on_constraint("user_username_key", |_| RwError::UsernameTaken)
-    .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
+            r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
+            username,
+            email,
+            password_hash.0
+        )
+        .fetch_one(&deps.get_db().pg_pool)
+        .await
+        .on_constraint("user_username_key", |_| RwError::UsernameTaken)
+        .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
         Ok((
             User {
@@ -51,11 +51,11 @@ pub mod repo {
         UserId(user_id): UserId,
     ) -> RwResult<Option<(User, Credentials)>> {
         let record = sqlx::query!(
-        r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE user_id = $1"#,
-        user_id
-    )
-    .fetch_optional(&deps.get_db().pg_pool)
-    .await?;
+            r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE user_id = $1"#,
+            user_id
+        )
+        .fetch_optional(&deps.get_db().pg_pool)
+        .await?;
 
         Ok(record.map(|record| {
             (
@@ -78,11 +78,11 @@ pub mod repo {
         email: &str,
     ) -> RwResult<Option<(User, Credentials)>> {
         let record = sqlx::query!(
-        r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
-        email
-    )
-    .fetch_optional(&deps.get_db().pg_pool)
-    .await?;
+            r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
+            email
+        )
+        .fetch_optional(&deps.get_db().pg_pool)
+        .await?;
 
         Ok(record.map(|record| {
             (
@@ -118,7 +118,7 @@ pub mod repo {
                 ) "following!"
             FROM app.user
             WHERE username = $1
-        "#,
+            "#,
             username,
             current_user.0
         )
@@ -146,15 +146,15 @@ pub mod repo {
         let record = sqlx::query!(
             // language=PostgreSQL
             r#"
-        UPDATE app.user SET
-            email = COALESCE($1, email),
-            username = COALESCE($2, username),
-            password_hash = COALESCE($3, password_hash),
-            bio = COALESCE($4, bio),
-            image = COALESCE($5, image)
-        WHERE user_id = $6
-        RETURNING username, bio, image, email, password_hash
-        "#,
+            UPDATE app.user SET
+                email = COALESCE($1, email),
+                username = COALESCE($2, username),
+                password_hash = COALESCE($3, password_hash),
+                bio = COALESCE($4, bio),
+                image = COALESCE($5, image)
+            WHERE user_id = $6
+            RETURNING username, bio, image, email, password_hash
+            "#,
             update.email,
             update.username,
             update.password_hash.map(|hash| hash.0),
@@ -203,7 +203,7 @@ pub mod repo {
             SELECT
                 EXISTS(SELECT 1 FROM id_pair) "user_exists!",
                 EXISTS(SELECT 1 FROM insertion) "inserted!"
-        "#,
+            "#,
             current_user_id.0,
             username
         )
@@ -240,7 +240,7 @@ pub mod repo {
                 EXISTS(SELECT 1 FROM other_user) "existed!",
                 -- This will only be `true` if we actually deleted the article.
                 EXISTS(SELECT 1 FROM deleted_follow) "deleted!"
-        "#,
+            "#,
             current_user_id.0,
             username
         )
