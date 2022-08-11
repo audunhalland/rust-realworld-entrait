@@ -1,4 +1,9 @@
-use realworld_app::{app::App, config::Config, routes};
+#![cfg_attr(feature = "use-associated-future", feature(generic_associated_types))]
+#![cfg_attr(feature = "use-associated-future", feature(type_alias_impl_trait))]
+
+mod app;
+mod config;
+mod routes;
 
 use anyhow::Context;
 use clap::Parser;
@@ -6,17 +11,20 @@ use entrait::Impl;
 use std::sync::Arc;
 use tower::ServiceBuilder;
 
+#[cfg(test)]
+mod test_util;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let config = Config::parse();
+    let config = config::Config::parse();
     let db = realworld_db::Db::init(&config.database_url).await?;
 
     // "link" the application by using the Impl type.
     // All trait implementations are for that type.
-    let app = Impl::new(App {
+    let app = Impl::new(app::App {
         config: Arc::new(config),
         db,
     });
