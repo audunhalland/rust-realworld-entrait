@@ -64,17 +64,17 @@ where
 
 #[cfg(test)]
 impl realworld_domain::user::repo::DelegateUserRepo<Self> for Db {
-    type Target = user::repo::Repo;
+    type Target = user::PgUserRepo;
 }
 
 #[cfg(test)]
 impl realworld_domain::article::repo::DelegateArticleRepo<Self> for Db {
-    type Target = article::repo::Repo;
+    type Target = article::PgArticleRepo;
 }
 
 #[cfg(test)]
 impl realworld_domain::comment::repo::DelegateCommentRepo<Self> for Db {
-    type Target = comment::repo::Repo;
+    type Target = comment::PgCommentRepo;
 }
 
 #[cfg(test)]

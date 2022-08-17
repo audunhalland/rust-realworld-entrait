@@ -10,13 +10,10 @@ use entrait::*;
 use futures::TryStreamExt;
 use uuid::Uuid;
 
-#[entrait_impl]
-pub mod repo {
-    use super::*;
+pub struct PgArticleRepo;
 
-    #[derive_impl(realworld_domain::article::repo::ArticleRepoImpl)]
-    pub struct Repo;
-
+#[entrait]
+impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
     pub async fn select_articles(
         deps: &impl GetDb,
         current_user: UserId<Option<Uuid>>,

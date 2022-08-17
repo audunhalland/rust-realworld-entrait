@@ -9,10 +9,10 @@ use uuid::Uuid;
 
 use entrait::*;
 
-#[entrait_impl]
-pub mod repo {
-    use super::*;
+pub struct PgCommentRepo;
 
+#[entrait]
+impl realworld_domain::comment::repo::CommentRepoImpl for PgCommentRepo {
     pub async fn list_comments(
         deps: &impl GetDb,
         current_user: UserId<Option<Uuid>>,
@@ -127,9 +127,6 @@ pub mod repo {
             Err(RwError::ArticleNotFound)
         }
     }
-
-    #[derive_impl(realworld_domain::comment::repo::CommentRepoImpl)]
-    pub struct Repo;
 }
 
 #[cfg(test)]

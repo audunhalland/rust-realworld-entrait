@@ -8,13 +8,10 @@ use realworld_domain::user::UserId;
 
 use entrait::*;
 
-#[entrait_impl]
-pub mod repo {
-    use super::*;
+pub struct PgUserRepo;
 
-    #[derive_impl(realworld_domain::user::repo::UserRepoImpl)]
-    pub struct Repo;
-
+#[entrait]
+impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
     pub async fn insert_user(
         deps: &impl GetDb,
         username: &str,

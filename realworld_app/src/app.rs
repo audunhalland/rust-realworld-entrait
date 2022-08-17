@@ -32,13 +32,13 @@ impl realworld_domain::GetConfig for App {
 }
 
 impl realworld_domain::user::repo::DelegateUserRepo<Self> for App {
-    type Target = realworld_db::user::repo::Repo;
+    type Target = realworld_db::user::PgUserRepo;
 }
 
 impl realworld_domain::article::repo::DelegateArticleRepo<Self> for App {
-    type Target = realworld_db::article::repo::Repo;
+    type Target = realworld_db::article::PgArticleRepo;
 }
 
 impl realworld_domain::comment::repo::DelegateCommentRepo<Self> for App {
-    type Target = realworld_db::comment::repo::Repo;
+    type Target = realworld_db::comment::PgCommentRepo;
 }
