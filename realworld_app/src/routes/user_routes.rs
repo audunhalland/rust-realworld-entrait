@@ -91,7 +91,7 @@ mod tests {
 
     fn test_signed_user() -> SignedUser {
         SignedUser {
-            email: "e".to_string(),
+            email: "e".parse().unwrap(),
             token: "e".to_string(),
             username: "e".to_string(),
             bio: "e".to_string(),
@@ -114,8 +114,8 @@ mod tests {
             Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
-                    email: "email".to_string(),
-                    password: "password".to_string(),
+                    email: "email".into(),
+                    password: "password".into(),
                 },
             }),
         )
@@ -139,7 +139,7 @@ mod tests {
                                 image: None,
                             },
                             repo::Credentials {
-                                email: email.to_string(),
+                                email: email.clone(),
                                 password_hash,
                             },
                         ))
@@ -154,8 +154,8 @@ mod tests {
             Request::post("/users").with_json_body(UserBody {
                 user: user::NewUser {
                     username: "username".to_string(),
-                    email: "email".to_string(),
-                    password: "password".to_string(),
+                    email: "email".into(),
+                    password: "password".into(),
                 },
             }),
         )
@@ -163,7 +163,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(StatusCode::OK, status);
-        assert_eq!("email", user_body.user.email);
+        assert_eq!("email", user_body.user.email.as_ref());
         assert_eq!(
             "eyJhbGciOiJIUzM4NCJ9.eyJ1c2VyX2lkIjoiMjBhNjI2YmEtYzdkMy00NGM3LTk4MWEtZTg4MGY4MWMxMjZmIiwiZXhwIjoxMjA5NjAwfQ.u91-bnMtsP2kKhex_lOiam3WkdEfegS3-qs-V06yehzl2Z5WUd4hH7yH7tFh4zSt",
             user_body.user.token
@@ -186,9 +186,7 @@ mod tests {
     async fn current_user_should_work() {
         let deps = mock(Some(
             fetch_current::Fn
-                .next_call(matching!(
-                    (token) if token.token() == "123"
-                ))
+                .next_call(matching!("123"))
                 .answers(|_| Ok(test_signed_user()))
                 .once()
                 .in_order(),

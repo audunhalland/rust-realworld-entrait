@@ -2,6 +2,7 @@ use crate::DbResultExt;
 use crate::GetDb;
 
 use realworld_domain::error::{RwError, RwResult};
+use realworld_domain::user::email::Email;
 use realworld_domain::user::password::PasswordHash;
 use realworld_domain::user::repo::*;
 use realworld_domain::user::UserId;
@@ -15,13 +16,13 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
     pub async fn insert_user(
         deps: &impl GetDb,
         username: &str,
-        email: &str,
+        email: &Email,
         password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)> {
         let id = sqlx::query_scalar!(
             r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
             username,
-            email,
+            email.as_ref(),
             password_hash.0
         )
         .fetch_one(&deps.get_db().pg_pool)
@@ -37,7 +38,7 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
                 image: None,
             },
             Credentials {
-                email: email.to_string(),
+                email: email.clone(),
                 password_hash,
             },
         ))
@@ -63,8 +64,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
                     image: record.image,
                 },
                 Credentials {
-                    email: record.email,
-                    password_hash: PasswordHash(record.password_hash),
+                    email: Email::valid(record.email),
+                    password_hash: record.password_hash.into(),
                 },
             )
         }))
@@ -72,11 +73,11 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
 
     pub async fn find_user_credentials_by_email(
         deps: &impl GetDb,
-        email: &str,
+        email: &Email,
     ) -> RwResult<Option<(User, Credentials)>> {
         let record = sqlx::query!(
             r#"SELECT user_id, email, username, password_hash, bio, image FROM app.user WHERE email = $1"#,
-            email
+            email.as_ref()
         )
         .fetch_optional(&deps.get_db().pg_pool)
         .await?;
@@ -90,8 +91,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
                     image: record.image,
                 },
                 Credentials {
-                    email: record.email,
-                    password_hash: PasswordHash(record.password_hash),
+                    email: Email::valid(record.email),
+                    password_hash: record.password_hash.into(),
                 },
             )
         }))
@@ -172,8 +173,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
                 image: record.image,
             },
             Credentials {
-                email: record.email,
-                password_hash: PasswordHash(record.password_hash),
+                email: Email::valid(record.email),
+                password_hash: record.password_hash.into(),
             },
         ))
     }
@@ -291,8 +292,8 @@ pub mod tests {
     ) -> RwResult<(User, Credentials)> {
         db.insert_user(
             user.username,
-            user.email,
-            PasswordHash(user.password_hash.to_string()),
+            &user.email.parse().unwrap(),
+            user.password_hash.into(),
         )
         .await
     }
@@ -303,7 +304,7 @@ pub mod tests {
         let (created_user, credentials) = db.insert_test_user(TestNewUser::default()).await?;
 
         assert_eq!("username", created_user.username);
-        assert_eq!("email", credentials.email);
+        assert_eq!("email", credentials.email.as_ref());
 
         let (fetched_user, fetched_credentials) = db
             .find_user_credentials_by_id(created_user.user_id)
@@ -356,7 +357,7 @@ pub mod tests {
                 UserUpdate {
                     email: Some("newmail"),
                     username: Some("newname"),
-                    password_hash: Some(PasswordHash("newhash".to_string())),
+                    password_hash: Some("newhash".into()),
                     bio: Some("newbio"),
                     image: Some("newimage"),
                 },
@@ -368,7 +369,7 @@ pub mod tests {
         assert_eq!("newbio", updated_user.bio);
         assert_eq!(Some("newimage"), updated_user.image.as_deref());
 
-        assert_eq!("newmail", updated_credentials.email);
+        assert_eq!("newmail", updated_credentials.email.as_ref());
         assert_eq!("newhash", updated_credentials.password_hash.0);
         Ok(())
     }

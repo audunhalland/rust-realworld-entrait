@@ -1,7 +1,7 @@
 use entrait::entrait_export as entrait;
 
 use super::password::PasswordHash;
-use super::UserId;
+use super::{Email, UserId};
 use crate::error::RwResult;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -14,7 +14,7 @@ pub struct User {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Credentials {
-    pub email: String,
+    pub email: Email,
     pub password_hash: PasswordHash,
 }
 
@@ -35,7 +35,7 @@ pub trait UserRepo {
     async fn insert_user(
         &self,
         username: &str,
-        email: &str,
+        email: &Email,
         password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)>;
 
@@ -46,7 +46,7 @@ pub trait UserRepo {
 
     async fn find_user_credentials_by_email(
         &self,
-        email: &str,
+        email: &Email,
     ) -> RwResult<Option<(User, Credentials)>>;
 
     async fn find_user_by_username(

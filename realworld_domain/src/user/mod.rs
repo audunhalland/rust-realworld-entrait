@@ -1,9 +1,12 @@
 pub mod auth;
+pub mod email;
 pub mod password;
 pub mod profile;
 pub mod repo;
 
 use auth::{Authenticate, Token};
+use email::Email;
+use password::CleartextPassword;
 
 use crate::error::{RwError, RwResult};
 
@@ -25,7 +28,7 @@ impl<I> UserId<I> {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct SignedUser {
-    pub email: String,
+    pub email: Email,
     pub token: String,
     pub username: String,
     pub bio: String,
@@ -34,15 +37,15 @@ pub struct SignedUser {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct LoginUser {
-    pub email: String,
-    pub password: String,
+    pub email: Email,
+    pub password: CleartextPassword,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct NewUser {
     pub username: String,
     pub email: String,
-    pub password: String,
+    pub password: CleartextPassword,
 }
 
 #[derive(serde::Deserialize, Default, PartialEq, Eq)]
@@ -50,7 +53,7 @@ pub struct NewUser {
 pub struct UserUpdate {
     pub email: Option<String>,
     pub username: Option<String>,
-    pub password: Option<String>,
+    pub password: Option<CleartextPassword>,
     pub bio: Option<String>,
     pub image: Option<String>,
 }
@@ -60,13 +63,14 @@ async fn create(
     deps: &(impl password::HashPassword + repo::UserRepo + auth::SignUserId),
     new_user: NewUser,
 ) -> RwResult<SignedUser> {
+    let email = new_user.email.parse()?;
     let password_hash = deps.hash_password(new_user.password).await?;
 
-    let (db_user, credentials) = deps
-        .insert_user(&new_user.username, &new_user.email, password_hash)
+    let (user, credentials) = deps
+        .insert_user(&new_user.username, &email, password_hash)
         .await?;
 
-    Ok(sign(deps, db_user, credentials.email))
+    Ok(user.sign(deps, credentials.email))
 }
 
 #[entrait(pub Login)]
@@ -74,7 +78,7 @@ async fn login(
     deps: &(impl repo::UserRepo + password::VerifyPassword + auth::SignUserId),
     login_user: LoginUser,
 ) -> RwResult<SignedUser> {
-    let (db_user, credentials) = deps
+    let (user, credentials) = deps
         .find_user_credentials_by_email(&login_user.email)
         .await?
         .ok_or(RwError::EmailDoesNotExist)?;
@@ -82,7 +86,7 @@ async fn login(
     deps.verify_password(login_user.password, credentials.password_hash)
         .await?;
 
-    Ok(sign(deps, db_user, credentials.email))
+    Ok(user.sign(deps, credentials.email))
 }
 
 #[entrait(pub FetchCurrent)]
@@ -91,12 +95,12 @@ async fn fetch_current(
     token: Token,
 ) -> RwResult<SignedUser> {
     let current_user_id = deps.authenticate(token)?;
-    let (db_user, credentials) = deps
+    let (user, credentials) = deps
         .find_user_credentials_by_id(current_user_id)
         .await?
         .ok_or(RwError::CurrentUserDoesNotExist)?;
 
-    Ok(sign(deps, db_user, credentials.email))
+    Ok(user.sign(deps, credentials.email))
 }
 
 #[entrait(pub Update)]
@@ -125,16 +129,18 @@ async fn update(
         )
         .await?;
 
-    Ok(sign(deps, user, credentials.email))
+    Ok(user.sign(deps, credentials.email))
 }
 
-fn sign(deps: &impl auth::SignUserId, db_user: repo::User, email: String) -> SignedUser {
-    SignedUser {
-        email,
-        token: deps.sign_user_id(db_user.user_id),
-        username: db_user.username,
-        bio: db_user.bio,
-        image: db_user.image,
+impl repo::User {
+    fn sign(self, deps: &impl auth::SignUserId, email: Email) -> SignedUser {
+        SignedUser {
+            email,
+            token: deps.sign_user_id(self.user_id),
+            username: self.username,
+            bio: self.bio,
+            image: self.image,
+        }
     }
 }
 
@@ -184,10 +190,11 @@ async fn fetch_profile_inner(
 
 #[cfg(test)]
 mod tests {
+    use super::password::HashPassword;
     use super::repo;
     use super::*;
-    use crate::user::password::PasswordHash;
 
+    use assert_matches::*;
     use unimock::*;
 
     fn test_token() -> String {
@@ -198,28 +205,30 @@ mod tests {
         UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap())
     }
 
+    fn test_repo_user() -> repo::User {
+        repo::User {
+            user_id: test_user_id(),
+            username: "Name".into(),
+            bio: "".to_string(),
+            image: None,
+        }
+    }
+
     pub fn mock_hash_password() -> unimock::Clause {
         password::hash_password::Fn
             .next_call(matching!(_))
-            .answers(|_| Ok(PasswordHash("h4sh".to_string())))
+            .answers(|_| Ok("h4sh".into()))
             .once()
             .in_order()
     }
 
     #[tokio::test]
     async fn test_create_user() {
-        let new_user = NewUser {
-            username: "Name".to_string(),
-            email: "name@email.com".to_string(),
-            password: "password".to_string(),
-        };
         let deps = mock([
             mock_hash_password(),
             repo::UserRepo__insert_user
-                .next_call(matching!(
-                    ("Name", "name@email.com", PasswordHash(hash)) if hash == "h4sh"
-                ))
-                .answers(|(username, email, hash)| {
+                .next_call(matching!("Name", "name@email.com", "h4sh"))
+                .answers(|(username, email, password_hash)| {
                     Ok((
                         repo::User {
                             user_id: test_user_id(),
@@ -228,8 +237,8 @@ mod tests {
                             image: None,
                         },
                         repo::Credentials {
-                            email: email.to_string(),
-                            password_hash: hash,
+                            email: email.clone(),
+                            password_hash,
                         },
                     ))
                 })
@@ -242,31 +251,31 @@ mod tests {
                 .in_order(),
         ]);
 
-        let signed_user = create(&deps, new_user).await.unwrap();
+        let signed_user = create(
+            &deps,
+            NewUser {
+                username: "Name".to_string(),
+                email: "name@email.com".parse().unwrap(),
+                password: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
 
         assert_eq!(signed_user.token, test_token());
     }
 
     #[tokio::test]
-    async fn test_login() {
-        let login_user = LoginUser {
-            email: "name@email.com".to_string(),
-            password: "password".to_string(),
-        };
+    async fn test_login_ok() {
         let deps = mock([
             repo::UserRepo__find_user_credentials_by_email
                 .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
-                        repo::User {
-                            user_id: test_user_id(),
-                            username: "Name".into(),
-                            bio: "".to_string(),
-                            image: None,
-                        },
+                        test_repo_user(),
                         repo::Credentials {
-                            email: email.to_string(),
-                            password_hash: PasswordHash("h4sh".into()),
+                            email: email.clone(),
+                            password_hash: "h4sh".into(),
                         },
                     )))
                 })
@@ -284,8 +293,52 @@ mod tests {
                 .in_order(),
         ]);
 
-        let signed_user = login(&deps, login_user).await.unwrap();
+        let signed_user = login(
+            &deps,
+            LoginUser {
+                email: "name@email.com".parse().unwrap(),
+                password: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
 
         assert_eq!(signed_user.token, test_token());
+    }
+
+    #[tokio::test]
+    async fn integration_test_mismatched_password() {
+        let wrong_password_hash = ::entrait::Impl::new(())
+            .hash_password("wrong_password".into())
+            .await
+            .unwrap();
+
+        let deps = spy(Some(
+            repo::UserRepo__find_user_credentials_by_email
+                .next_call(matching!("name@email.com"))
+                .answers(move |email| {
+                    Ok(Some((
+                        test_repo_user(),
+                        repo::Credentials {
+                            email: email.clone(),
+                            password_hash: wrong_password_hash.clone(),
+                        },
+                    )))
+                })
+                .once()
+                .in_order(),
+        ));
+
+        let error = login(
+            &deps,
+            LoginUser {
+                email: "name@email.com".parse().unwrap(),
+                password: "password".into(),
+            },
+        )
+        .await
+        .expect_err("should error");
+
+        assert_matches!(error, RwError::Unauthorized);
     }
 }
