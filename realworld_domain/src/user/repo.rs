@@ -30,7 +30,7 @@ pub struct UserUpdate<'a> {
     pub image: Option<&'a str>,
 }
 
-#[entrait(UserRepoImpl, delegate_by = DelegateUserRepo)]
+#[entrait(UserRepoImpl, delegate_by=DelegateUserRepo, mock_api=UserRepoMock)]
 pub trait UserRepo {
     async fn insert_user(
         &self,

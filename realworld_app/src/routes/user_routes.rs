@@ -101,13 +101,11 @@ mod tests {
 
     #[tokio::test]
     async fn unit_test_create_user() {
-        let deps = mock(Some(
-            create::Fn
+        let deps = Unimock::new(
+            CreateMock
                 .next_call(matching!(_))
-                .answers(|_| Ok(test_signed_user()))
-                .once()
-                .in_order(),
-        ));
+                .returns(Ok(test_signed_user())),
+        );
 
         let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
@@ -127,27 +125,25 @@ mod tests {
 
     #[tokio::test]
     async fn integration_test_create_user() {
-        let deps = spy([
-            UserRepo__insert_user.stub(|each| {
-                each.call(matching!("username", "email", _)).answers(
-                    |(username, email, password_hash)| {
-                        Ok((
-                            repo::User {
-                                user_id: UserId(test_uuid()),
-                                username: username.to_string(),
-                                bio: "bio".to_string(),
-                                image: None,
-                            },
-                            repo::Credentials {
-                                email: email.clone(),
-                                password_hash,
-                            },
-                        ))
-                    },
-                );
-            }),
+        let deps = Unimock::new_partial((
             realworld_domain::test::mock_system_and_config(),
-        ]);
+            UserRepoMock::insert_user
+                .next_call(matching!("username", "email", _))
+                .answers(|(username, email, password_hash)| {
+                    Ok((
+                        repo::User {
+                            user_id: UserId(test_uuid()),
+                            username: username.to_string(),
+                            bio: "bio".to_string(),
+                            image: None,
+                        },
+                        repo::Credentials {
+                            email: email.clone(),
+                            password_hash,
+                        },
+                    ))
+                }),
+        ));
 
         let (status, user_body) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),
@@ -173,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn protected_endpoint_with_no_token_should_give_401() {
-        let deps = mock(None);
+        let deps = Unimock::new(());
         let (status, _) = request(
             test_router(deps.clone()),
             Request::get("/user").empty_body(),
@@ -184,13 +180,11 @@ mod tests {
 
     #[tokio::test]
     async fn current_user_should_work() {
-        let deps = mock(Some(
-            fetch_current::Fn
+        let deps = Unimock::new(
+            FetchCurrentMock
                 .next_call(matching!("123"))
-                .answers(|_| Ok(test_signed_user()))
-                .once()
-                .in_order(),
-        ));
+                .returns(Ok(test_signed_user())),
+        );
 
         let (status, _) = request_json::<UserBody<user::SignedUser>>(
             test_router(deps.clone()),

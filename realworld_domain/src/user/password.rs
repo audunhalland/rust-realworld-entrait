@@ -37,7 +37,7 @@ impl AsRef<str> for PasswordHash {
     }
 }
 
-#[entrait(pub HashPassword, no_deps)]
+#[entrait(pub HashPassword, no_deps, mock_api=HashPasswordMock)]
 async fn hash_password(password: CleartextPassword) -> RwResult<PasswordHash> {
     // Argon2 hashing is designed to be computationally intensive,
     // so we need to do this on a blocking thread.
@@ -54,7 +54,7 @@ async fn hash_password(password: CleartextPassword) -> RwResult<PasswordHash> {
     .context("panic when generating password hash")?
 }
 
-#[entrait(pub VerifyPassword, no_deps)]
+#[entrait(pub VerifyPassword, no_deps, mock_api=VerifyPasswordMock)]
 async fn verify_password(password: CleartextPassword, password_hash: PasswordHash) -> RwResult<()> {
     tokio::task::spawn_blocking(move || -> RwResult<()> {
         use argon2::password_hash::PasswordHash;

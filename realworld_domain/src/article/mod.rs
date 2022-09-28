@@ -86,7 +86,7 @@ pub struct FeedArticlesQuery {
     offset: Option<i64>,
 }
 
-#[entrait(pub Api)]
+#[entrait(pub Api, mock_api=mock)]
 pub mod api {
     use super::*;
 
@@ -267,7 +267,9 @@ pub mod api {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::user::auth::authenticate::AuthenticateMock;
+
+    use super::{repo::ArticleRepoMock, *};
     use assert_matches::*;
     use unimock::*;
     use uuid::Uuid;
@@ -300,32 +302,26 @@ mod tests {
         }
     }
 
-    fn mock_authenticate() -> unimock::Clause {
-        authenticate::authenticate::Fn
+    fn mock_authenticate() -> impl unimock::Clause {
+        AuthenticateMock::authenticate
             .next_call(matching!(_))
-            .answers(|_| Ok(UserId(Uuid::new_v4())))
-            .once()
-            .in_order()
+            .returns(Ok(UserId(Uuid::new_v4())))
     }
 
-    fn mock_authenticate_anonymous() -> unimock::Clause {
-        authenticate::opt_authenticate::Fn
+    fn mock_authenticate_anonymous() -> impl unimock::Clause {
+        AuthenticateMock::opt_authenticate
             .next_call(matching!(None))
-            .answers(|_| Ok(UserId(None)))
-            .once()
-            .in_order()
+            .returns(Ok(UserId(None)))
     }
 
     #[tokio::test]
     async fn create_article_should_slugify() {
-        let deps = mock([
+        let deps = Unimock::new((
             mock_authenticate(),
-            repo::ArticleRepo__insert_article
+            ArticleRepoMock::insert_article
                 .next_call(matching!(UserId(_), "my-title", _, _, _, _))
-                .answers(|_| Ok(test_db_article()))
-                .once()
-                .in_order(),
-        ]);
+                .returns(Ok(test_db_article())),
+        ));
         api::create_article(
             &deps,
             Token::from_token("token"),
@@ -342,9 +338,9 @@ mod tests {
 
     #[tokio::test]
     async fn get_article_empty_result_should_produce_not_found_error() {
-        let deps = mock([
+        let deps = Unimock::new((
             mock_authenticate_anonymous(),
-            repo::ArticleRepo__select_articles
+            ArticleRepoMock::select_articles
                 .next_call(matching!(
                     UserId(None),
                     repo::Filter {
@@ -352,10 +348,8 @@ mod tests {
                         ..
                     }
                 ))
-                .answers(|_| Ok(vec![]))
-                .once()
-                .in_order(),
-        ]);
+                .returns(Ok(vec![])),
+        ));
         assert_matches!(
             api::fetch_article(&deps, Token::none(), "slug").await,
             Err(RwError::ArticleNotFound)
@@ -364,9 +358,9 @@ mod tests {
 
     #[tokio::test]
     async fn update_article_should_update_slug() {
-        let deps = mock([
+        let deps = Unimock::new((
             mock_authenticate(),
-            repo::ArticleRepo__update_article
+            ArticleRepoMock::update_article
                 .next_call(matching!(
                     UserId(_),
                     "slug",
@@ -377,10 +371,8 @@ mod tests {
                         body: Some("New body")
                     }
                 ))
-                .answers(|_| Ok(()))
-                .once()
-                .in_order(),
-            repo::ArticleRepo__select_articles
+                .returns(Ok(())),
+            ArticleRepoMock::select_articles
                 .next_call(matching!(
                     UserId(Some(_)),
                     repo::Filter {
@@ -388,10 +380,8 @@ mod tests {
                         ..
                     }
                 ))
-                .answers(|_| Ok(vec![test_db_article()]))
-                .once()
-                .in_order(),
-        ]);
+                .returns(Ok(vec![test_db_article()])),
+        ));
         api::update_article(
             &deps,
             Token::from_token("token"),

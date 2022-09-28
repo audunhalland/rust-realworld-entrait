@@ -58,7 +58,7 @@ pub struct UserUpdate {
     pub image: Option<String>,
 }
 
-#[entrait(pub Create)]
+#[entrait(pub Create, mock_api=CreateMock)]
 async fn create(
     deps: &(impl password::HashPassword + repo::UserRepo + auth::SignUserId),
     new_user: NewUser,
@@ -89,7 +89,7 @@ async fn login(
     Ok(user.sign(deps, credentials.email))
 }
 
-#[entrait(pub FetchCurrent)]
+#[entrait(pub FetchCurrent, mock_api=FetchCurrentMock)]
 async fn fetch_current(
     deps: &(impl Authenticate + repo::UserRepo + auth::SignUserId),
     token: Token,
@@ -190,7 +190,7 @@ async fn fetch_profile_inner(
 
 #[cfg(test)]
 mod tests {
-    use super::password::HashPassword;
+    use super::password::{HashPassword, HashPasswordMock};
     use super::repo;
     use super::*;
 
@@ -214,19 +214,17 @@ mod tests {
         }
     }
 
-    pub fn mock_hash_password() -> unimock::Clause {
-        password::hash_password::Fn
+    pub fn mock_hash_password() -> impl unimock::Clause {
+        HashPasswordMock
             .next_call(matching!(_))
-            .answers(|_| Ok("h4sh".into()))
-            .once()
-            .in_order()
+            .returns(Ok("h4sh".into()))
     }
 
     #[tokio::test]
     async fn test_create_user() {
-        let deps = mock([
+        let deps = Unimock::new((
             mock_hash_password(),
-            repo::UserRepo__insert_user
+            repo::UserRepoMock::insert_user
                 .next_call(matching!("Name", "name@email.com", "h4sh"))
                 .answers(|(username, email, password_hash)| {
                     Ok((
@@ -241,15 +239,11 @@ mod tests {
                             password_hash,
                         },
                     ))
-                })
-                .once()
-                .in_order(),
-            auth::sign_user_id::Fn
+                }),
+            auth::SignUserIdMock
                 .next_call(matching!(_))
-                .returns(test_token())
-                .once()
-                .in_order(),
-        ]);
+                .returns(test_token()),
+        ));
 
         let signed_user = create(
             &deps,
@@ -267,8 +261,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_login_ok() {
-        let deps = mock([
-            repo::UserRepo__find_user_credentials_by_email
+        let deps = Unimock::new((
+            repo::UserRepoMock::find_user_credentials_by_email
                 .next_call(matching!("name@email.com"))
                 .answers(|email| {
                     Ok(Some((
@@ -278,20 +272,14 @@ mod tests {
                             password_hash: "h4sh".into(),
                         },
                     )))
-                })
-                .once()
-                .in_order(),
-            password::verify_password::Fn
+                }),
+            password::VerifyPasswordMock
                 .next_call(matching!(_))
-                .answers(|_| Ok(()))
-                .once()
-                .in_order(),
-            auth::sign_user_id::Fn
+                .returns(Ok(())),
+            auth::SignUserIdMock
                 .next_call(matching!(_))
-                .returns(test_token())
-                .once()
-                .in_order(),
-        ]);
+                .returns(test_token()),
+        ));
 
         let signed_user = login(
             &deps,
@@ -313,8 +301,8 @@ mod tests {
             .await
             .unwrap();
 
-        let deps = spy(Some(
-            repo::UserRepo__find_user_credentials_by_email
+        let deps = Unimock::new_partial(
+            repo::UserRepoMock::find_user_credentials_by_email
                 .next_call(matching!("name@email.com"))
                 .answers(move |email| {
                     Ok(Some((
@@ -324,10 +312,8 @@ mod tests {
                             password_hash: wrong_password_hash.clone(),
                         },
                     )))
-                })
-                .once()
-                .in_order(),
-        ));
+                }),
+        );
 
         let error = login(
             &deps,

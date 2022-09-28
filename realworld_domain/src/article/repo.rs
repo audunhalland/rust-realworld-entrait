@@ -42,7 +42,7 @@ pub struct ArticleUpdate<'a> {
     pub body: Option<&'a str>,
 }
 
-#[entrait(ArticleRepoImpl, delegate_by = DelegateArticleRepo)]
+#[entrait(ArticleRepoImpl, delegate_by=DelegateArticleRepo, mock_api=ArticleRepoMock)]
 pub trait ArticleRepo {
     async fn select_articles(
         &self,

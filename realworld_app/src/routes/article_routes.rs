@@ -189,15 +189,13 @@ mod tests {
 
     #[tokio::test]
     async fn list_articles_should_accept_no_auth() {
-        let deps = mock(Some(
-            article::api::list_articles::Fn
+        let deps = Unimock::new(
+            article::api::mock::list_articles
                 .next_call(matching! {
                     (None, query) if query == &article::ListArticlesQuery::default()
                 })
-                .answers(|_| Ok(vec![]))
-                .once()
-                .in_order(),
-        ));
+                .returns(Ok(vec![])),
+        );
 
         let (status, body) = request_json::<MultipleArticlesBody>(
             test_router(deps.clone()),

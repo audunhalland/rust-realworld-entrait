@@ -20,7 +20,7 @@ struct AuthUserClaims {
     exp: i64,
 }
 
-#[entrait(pub SignUserId)]
+#[entrait(pub SignUserId, mock_api=SignUserIdMock)]
 fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
     AuthUserClaims {
         user_id: user_id.0,
@@ -30,7 +30,7 @@ fn sign_user_id(deps: &(impl System + GetConfig), user_id: UserId) -> String {
     .expect("HMAC signing should be infallible")
 }
 
-#[entrait(pub Authenticate)]
+#[entrait(pub Authenticate, mock_api=AuthenticateMock)]
 pub mod authenticate {
     use super::*;
 
@@ -134,7 +134,7 @@ mod tests {
     fn should_sign_and_authenticate_token() {
         let user_id =
             UserId(uuid::Uuid::parse_str("20a626ba-c7d3-44c7-981a-e880f81c126f").unwrap());
-        let deps = mock(Some(crate::test::mock_system_and_config()));
+        let deps = Unimock::new(crate::test::mock_system_and_config());
         let token = sign_user_id(&deps, user_id.clone());
 
         assert_eq!(
