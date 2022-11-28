@@ -7,6 +7,7 @@ pub struct Config {
     pub jwt_signing_key: JtwSigningKey,
 }
 
+#[derive(Clone)]
 pub struct JtwSigningKey(pub hmac::Hmac<sha2::Sha384>);
 
 impl std::str::FromStr for JtwSigningKey {

@@ -17,10 +17,10 @@ realworld-domain = { path = "../realworld_domain" }
 realworld-db = { path = "../realworld_db" }
 
 # core
-clap = { version = "3", features = ["derive", "env"] }
+clap = { version = "4", features = ["derive", "env"] }
 dotenv = "0.15"
 tracing = "0.1"
-env_logger = "0.9"
+env_logger = "0.10"
 serde = { version = "1", features = ["derive"] }
 
 # web server
