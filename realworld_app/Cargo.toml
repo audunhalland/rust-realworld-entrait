@@ -25,7 +25,7 @@ serde = { version = "1", features = ["derive"] }
 
 # web server
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.5", features = ["tower-log", "headers"] }
+axum = { version = "0.6", features = ["tower-log", "headers"] }
 hyper = { version = "0.14", features = ["full"] }
 headers = "0.3"
 tower = "0.4"

@@ -110,14 +110,18 @@ impl Credentials for Token {
 }
 
 #[async_trait::async_trait]
-impl<B: Send> axum::extract::FromRequest<B> for Token {
+impl<S> axum::extract::FromRequestParts<S> for Token
+where
+    S: Send + Sync,
+{
     type Rejection = RwError;
 
-    async fn from_request(
-        req: &mut axum::extract::RequestParts<B>,
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
     ) -> Result<Self, Self::Rejection> {
         let TypedHeader(Authorization(token)) =
-            TypedHeader::<Authorization<Token>>::from_request(req)
+            TypedHeader::<Authorization<Token>>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| RwError::Unauthorized)?;
 
