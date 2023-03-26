@@ -44,7 +44,7 @@ async fn hash_password(password: CleartextPassword) -> RwResult<PasswordHash> {
     tokio::task::spawn_blocking(move || -> RwResult<PasswordHash> {
         let salt = SaltString::generate(rand::thread_rng());
         Ok(
-            argon2::PasswordHash::generate(Argon2::default(), password.0, salt.as_str())
+            argon2::PasswordHash::generate(Argon2::default(), password.0, &salt)
                 .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
                 .to_string()
                 .into(),

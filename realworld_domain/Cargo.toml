@@ -22,7 +22,7 @@ time = { version = "0.3", features = ["serde-well-known"] }
 entrait = "0.5"
 unimock = "0.4"
 rand = "0.8"
-argon2 = "0.4"
+argon2 = "0.5"
 jwt = "0.16"
 async-trait = "0.1"
 itertools = "0.10"
