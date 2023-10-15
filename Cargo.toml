@@ -4,3 +4,4 @@ members = [
     "realworld_db",
     "realworld_app"
 ]
+resolver = "2"

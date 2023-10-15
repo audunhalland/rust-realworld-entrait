@@ -13,8 +13,8 @@ use-associated-futures = []
 [dependencies]
 realworld-domain = { path = "../realworld_domain" }
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
-entrait = "0.5"
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "uuid"] }
+entrait = "0.6"
 time = "0.3"
 uuid = "1"
 sha2 = "0.10"

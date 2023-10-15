@@ -170,7 +170,7 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             "SELECT article_id, user_id FROM app.article WHERE slug = $1 FOR UPDATE",
             slug
         )
-        .fetch_optional(&mut tx)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or(RwError::ArticleNotFound)?;
 
@@ -195,7 +195,7 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             up.body,
             article_meta.article_id
         )
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await?;
 
         // Mustn't forget this!

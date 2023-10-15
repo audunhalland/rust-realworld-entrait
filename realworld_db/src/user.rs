@@ -19,16 +19,20 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
         email: &Email,
         password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)> {
+        let mut tx = deps.get_db().pg_pool.begin().await?;
+
         let id = sqlx::query_scalar!(
             r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
             username,
             email.as_ref(),
             password_hash.0
         )
-        .fetch_one(&deps.get_db().pg_pool)
+        .fetch_one(&mut *tx)
         .await
         .on_constraint("user_username_key", |_| RwError::UsernameTaken)
         .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
+
+        tx.commit().await?;
 
         Ok((
             User {
