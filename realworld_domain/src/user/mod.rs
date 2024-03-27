@@ -190,6 +190,8 @@ async fn fetch_profile_inner(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::password::{HashPassword, HashPasswordMock};
     use super::repo;
     use super::*;
@@ -226,7 +228,7 @@ mod tests {
             mock_hash_password(),
             repo::UserRepoMock::insert_user
                 .next_call(matching!("Name", "name@email.com", "h4sh"))
-                .answers(|(username, email, password_hash)| {
+                .answers(&|_, username, email, password_hash| {
                     Ok((
                         repo::User {
                             user_id: test_user_id(),
@@ -264,7 +266,7 @@ mod tests {
         let deps = Unimock::new((
             repo::UserRepoMock::find_user_credentials_by_email
                 .next_call(matching!("name@email.com"))
-                .answers(|email| {
+                .answers(&|_, email| {
                     Ok(Some((
                         test_repo_user(),
                         repo::Credentials {
@@ -304,7 +306,7 @@ mod tests {
         let deps = Unimock::new_partial(
             repo::UserRepoMock::find_user_credentials_by_email
                 .next_call(matching!("name@email.com"))
-                .answers(move |email| {
+                .answers_arc(Arc::new(move |_, email| {
                     Ok(Some((
                         test_repo_user(),
                         repo::Credentials {
@@ -312,7 +314,7 @@ mod tests {
                             password_hash: wrong_password_hash.clone(),
                         },
                     )))
-                }),
+                })),
         );
 
         let error = login(
