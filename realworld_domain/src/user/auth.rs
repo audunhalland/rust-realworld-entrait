@@ -2,11 +2,11 @@ use super::UserId;
 use crate::error::{RwError, RwResult};
 use crate::{GetConfig, System};
 
-use axum::http::HeaderValue;
-use axum::TypedHeader;
+use axum_extra::TypedHeader;
 use entrait::entrait_export as entrait;
 use headers::authorization::Credentials;
 use headers::Authorization;
+use http::HeaderValue;
 use jwt::SignWithKey;
 use jwt::VerifyWithKey;
 use uuid::Uuid;

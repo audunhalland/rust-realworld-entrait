@@ -20,16 +20,16 @@ realworld-db = { path = "../realworld_db" }
 clap = { version = "4", features = ["derive", "env"] }
 dotenv = "0.15"
 tracing = "0.1"
-env_logger = "0.10"
+env_logger = "0.11"
 serde = { version = "1", features = ["derive"] }
 
 # web server
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.6", features = ["tower-log", "headers"] }
-hyper = { version = "0.14", features = ["full"] }
-headers = "0.3"
+axum = { version = "0.7", features = ["tower-log"] }
+hyper = { version = "1", features = ["full"] }
+headers = "0.4"
 tower = "0.4"
-tower-http = { version = "0.4", features = ["trace"] }
+tower-http = { version = "0.5", features = ["trace"] }
 serde_json = "1"
 
 # design pattern
@@ -50,5 +50,5 @@ mime = "0.3"
 assert_matches = "1"
 hex = "0.4"
 unimock = "0.5"
-http = "0.2"
+http = "1.0"
 bytes = "1"

@@ -59,7 +59,7 @@ impl<T> OnConstraint<T> for Result<T, RwError> {
         name: &str,
         map_err: impl FnOnce(Box<dyn DatabaseError>) -> RwError,
     ) -> Result<T, RwError> {
-        self.map_err(|e| match e.into() {
+        self.map_err(|e| match e {
             RwError::Anyhow(error) => match error.downcast::<sqlx::Error>() {
                 Ok(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => map_err(dbe),
                 Ok(dbe) => RwError::Anyhow(dbe.into()),

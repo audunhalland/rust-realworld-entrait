@@ -9,17 +9,20 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.7", features = ["time"] }
-axum = { version = "0.6", features = ["headers"] }
-headers = "0.3"
+axum-extra = { version = "0.9", features = ["typed-header"] }
+axum = "0.7"
+
+http = "1.0"
+headers = "0.4"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 anyhow = "1"
 tracing = "0.1"
 hmac = "0.12"
 sha2 = "0.10"
 time = { version = "0.3", features = ["serde-well-known"] }
-entrait = "0.6"
+entrait = { version = "0.6", features = ["unimock"] }
 unimock = "0.5"
 rand = "0.8"
 argon2 = "0.5"

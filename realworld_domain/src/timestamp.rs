@@ -10,7 +10,7 @@ impl std::fmt::Display for Timestamptz {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0
             .format_into(&mut IoFmtAdapter(f), &Rfc3339)
-            .map_err(|_| std::fmt::Error::default())?;
+            .map_err(|_| std::fmt::Error)?;
         Ok(())
     }
 }

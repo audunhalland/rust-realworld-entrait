@@ -36,8 +36,9 @@ async fn main() -> anyhow::Result<()> {
             .layer(tower_http::trace::TraceLayer::new_for_http()),
     );
 
-    axum::Server::bind(&"0.0.0.0:8080".parse()?)
-        .serve(router.into_make_service())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+
+    axum::serve(listener, router)
         .await
         .context("error running HTTP server")?;
 
