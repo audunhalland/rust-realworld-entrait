@@ -129,7 +129,7 @@ mod tests {
             realworld_domain::test::mock_system_and_config(),
             UserRepoMock::insert_user
                 .next_call(matching!("username", "email", _))
-                .answers(|(username, email, password_hash)| {
+                .answers(&|_, username, email, password_hash| {
                     Ok((
                         repo::User {
                             user_id: UserId(test_uuid()),

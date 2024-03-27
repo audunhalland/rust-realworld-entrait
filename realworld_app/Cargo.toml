@@ -6,11 +6,6 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["use-boxed-futures"]
-use-boxed-futures = ["entrait/use-boxed-futures"]
-use-associated-futures = ["entrait/use-associated-futures", "realworld-db/use-associated-futures"]
-
 [dependencies]
 # realworld
 realworld-domain = { path = "../realworld_domain" }
@@ -33,7 +28,7 @@ tower-http = { version = "0.5", features = ["trace"] }
 serde_json = "1"
 
 # design pattern
-entrait = { version = "0.6", features = ["unimock"] }
+entrait = { path = "../../entrait", features = ["unimock"] }
 
 # error
 anyhow = "1"
@@ -49,6 +44,6 @@ url = "2.0"
 mime = "0.3"
 assert_matches = "1"
 hex = "0.4"
-unimock = "0.5"
+unimock = "0.6"
 http = "1.0"
 bytes = "1"
