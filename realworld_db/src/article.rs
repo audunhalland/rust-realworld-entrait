@@ -1,5 +1,6 @@
 use crate::DbResultExt;
 use crate::GetDb;
+use crate::OnConstraint;
 
 use realworld_domain::article::repo::*;
 use realworld_domain::error::{RwError, RwResult};
@@ -86,7 +87,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
         )
         .fetch(&deps.get_db().pg_pool)
         .try_collect::<Vec<_>>()
-        .await?;
+        .await
+        .to_rw_err()?;
 
         Ok(articles)
     }
@@ -98,7 +100,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             slug,
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?
+        .await
+        .to_rw_err()?
         .ok_or(RwError::ArticleNotFound)
     }
 
@@ -149,6 +152,7 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
         )
         .fetch_one(&deps.get_db().pg_pool)
         .await
+        .to_rw_err()
         .on_constraint("article_slug_key", |_| {
             RwError::DuplicateArticleSlug(slug.to_string())
         })?;
@@ -162,7 +166,7 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
         slug: &str,
         up: ArticleUpdate<'_>,
     ) -> RwResult<()> {
-        let mut tx = deps.get_db().pg_pool.begin().await?;
+        let mut tx = deps.get_db().pg_pool.begin().await.to_rw_err()?;
 
         let article_meta = sqlx::query!(
             // This locks the `article` row for the duration of the transaction so we're
@@ -171,7 +175,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             slug
         )
         .fetch_optional(&mut *tx)
-        .await?
+        .await
+        .to_rw_err()?
         .ok_or(RwError::ArticleNotFound)?;
 
         if article_meta.user_id != user_id {
@@ -196,10 +201,11 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             article_meta.article_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         // Mustn't forget this!
-        tx.commit().await?;
+        tx.commit().await.to_rw_err()?;
 
         Ok(())
     }
@@ -229,7 +235,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             user_id
         )
         .fetch_one(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         if result.deleted {
             Ok(())
@@ -262,7 +269,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             user_id
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?
+        .await
+        .to_rw_err()?
         .ok_or(RwError::ArticleNotFound)?;
 
         Ok(())
@@ -289,7 +297,8 @@ impl realworld_domain::article::repo::ArticleRepoImpl for PgArticleRepo {
             user_id
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?
+        .await
+        .to_rw_err()?
         .ok_or(RwError::ArticleNotFound)?;
 
         Ok(())

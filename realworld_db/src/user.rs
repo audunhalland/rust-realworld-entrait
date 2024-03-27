@@ -1,5 +1,6 @@
 use crate::DbResultExt;
 use crate::GetDb;
+use crate::OnConstraint;
 
 use realworld_domain::error::{RwError, RwResult};
 use realworld_domain::user::email::Email;
@@ -19,7 +20,7 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
         email: &Email,
         password_hash: PasswordHash,
     ) -> RwResult<(User, Credentials)> {
-        let mut tx = deps.get_db().pg_pool.begin().await?;
+        let mut tx = deps.get_db().pg_pool.begin().await.to_rw_err()?;
 
         let id = sqlx::query_scalar!(
             r#"INSERT INTO app.user (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id"#,
@@ -29,10 +30,11 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
         )
         .fetch_one(&mut *tx)
         .await
+        .to_rw_err()
         .on_constraint("user_username_key", |_| RwError::UsernameTaken)
         .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
-        tx.commit().await?;
+        tx.commit().await.to_rw_err()?;
 
         Ok((
             User {
@@ -57,7 +59,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
             user_id
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         Ok(record.map(|record| {
             (
@@ -84,7 +87,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
             email.as_ref()
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         Ok(record.map(|record| {
             (
@@ -125,7 +129,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
             current_user.0
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         Ok(record.map(|record| {
             (
@@ -166,6 +171,7 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
         )
         .fetch_one(&deps.get_db().pg_pool)
         .await
+        .to_rw_err()
         .on_constraint("user_username_key", |_| RwError::UsernameTaken)
         .on_constraint("user_email_key", |_| RwError::EmailTaken)?;
 
@@ -211,6 +217,7 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
         )
         .fetch_one(&deps.get_db().pg_pool)
         .await
+        .to_rw_err()
         .on_constraint("follow_following_user_id", |_| RwError::ProfileNotFound)
         .on_constraint("user_cannot_follow_self", |_| RwError::Forbidden)?;
 
@@ -247,7 +254,8 @@ impl realworld_domain::user::repo::UserRepoImpl for PgUserRepo {
             username
         )
         .fetch_one(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         if !result.existed {
             Err(RwError::ProfileNotFound)
@@ -473,7 +481,7 @@ pub mod tests {
             .await
             .unwrap_err();
 
-        assert_matches!(err, RwError::Sqlx(_));
+        assert_matches!(err, RwError::Anyhow(_));
         Ok(())
     }
 }

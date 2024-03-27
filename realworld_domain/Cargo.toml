@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.7", features = ["postgres", "time"] }
+sqlx = { version = "0.7", features = ["time"] }
 axum = { version = "0.6", features = ["headers"] }
 headers = "0.3"
 serde = { version = "1", features = ["derive"] }

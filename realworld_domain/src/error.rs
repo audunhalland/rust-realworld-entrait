@@ -37,9 +37,6 @@ pub enum RwError {
     #[error("duplicate article slug: {0}")]
     DuplicateArticleSlug(String),
 
-    #[error("an error occurred with the database")]
-    Sqlx(#[from] sqlx::Error),
-
     #[error("an internal server error occurred")]
     Anyhow(#[from] anyhow::Error),
 }
@@ -56,7 +53,7 @@ impl RwError {
             Self::ProfileNotFound => StatusCode::NOT_FOUND,
             Self::ArticleNotFound => StatusCode::NOT_FOUND,
             Self::DuplicateArticleSlug(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::Sqlx(_) | Self::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -90,12 +87,6 @@ impl axum::response::IntoResponse for RwError {
                 "slug".into(),
                 vec![format!("duplicate article slug: {slug}").into()],
             )]),
-            Self::Sqlx(ref e) => {
-                // TODO: we probably want to use `tracing` instead
-                // so that this gets linked to the HTTP request by `TraceLayer`.
-                tracing::error!("SQLx error: {:?}", e);
-                (self.status_code(), self.to_string()).into_response()
-            }
             Self::Anyhow(ref e) => {
                 // TODO: we probably want to use `tracing` instead
                 // so that this gets linked to the HTTP request by `TraceLayer`.

@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "use-associated-future", feature(type_alias_impl_trait))]
 
-use realworld_domain::error::RwError;
+use realworld_domain::error::{RwError, RwResult};
 
 use anyhow::Context;
 use entrait::entrait_export as entrait;
@@ -36,6 +36,16 @@ fn get_db(db: &Db) -> &Db {
 }
 
 trait DbResultExt<T> {
+    fn to_rw_err(self) -> RwResult<T>;
+}
+
+impl<T> DbResultExt<T> for Result<T, sqlx::Error> {
+    fn to_rw_err(self) -> RwResult<T> {
+        self.map_err(|sqlx_error| RwError::Anyhow(sqlx_error.into()))
+    }
+}
+
+trait OnConstraint<T> {
     fn on_constraint(
         self,
         name: &str,
@@ -43,19 +53,18 @@ trait DbResultExt<T> {
     ) -> Result<T, RwError>;
 }
 
-impl<T, E> DbResultExt<T> for Result<T, E>
-where
-    E: Into<RwError>,
-{
+impl<T> OnConstraint<T> for Result<T, RwError> {
     fn on_constraint(
         self,
         name: &str,
         map_err: impl FnOnce(Box<dyn DatabaseError>) -> RwError,
     ) -> Result<T, RwError> {
         self.map_err(|e| match e.into() {
-            RwError::Sqlx(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => {
-                map_err(dbe)
-            }
+            RwError::Anyhow(error) => match error.downcast::<sqlx::Error>() {
+                Ok(sqlx::Error::Database(dbe)) if dbe.constraint() == Some(name) => map_err(dbe),
+                Ok(dbe) => RwError::Anyhow(dbe.into()),
+                Err(e) => RwError::Anyhow(e),
+            },
             e => e,
         })
     }

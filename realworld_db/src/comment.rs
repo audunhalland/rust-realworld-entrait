@@ -1,4 +1,4 @@
-use crate::GetDb;
+use crate::{DbResultExt, GetDb};
 
 use realworld_domain::comment::repo::Comment;
 use realworld_domain::error::*;
@@ -42,7 +42,8 @@ impl realworld_domain::comment::repo::CommentRepoImpl for PgCommentRepo {
     )
         .fetch(&deps.get_db().pg_pool)
         .try_collect()
-        .await?;
+        .await
+        .to_rw_err()?;
 
         Ok(comments)
     }
@@ -80,7 +81,8 @@ impl realworld_domain::comment::repo::CommentRepoImpl for PgCommentRepo {
             article_slug,
         )
         .fetch_optional(&deps.get_db().pg_pool)
-        .await?
+        .await
+        .to_rw_err()?
         .ok_or(RwError::ArticleNotFound)?;
 
         Ok(comment)
@@ -117,7 +119,8 @@ impl realworld_domain::comment::repo::CommentRepoImpl for PgCommentRepo {
             current_user.0
         )
         .fetch_one(&deps.get_db().pg_pool)
-        .await?;
+        .await
+        .to_rw_err()?;
 
         if result.deleted {
             Ok(())
